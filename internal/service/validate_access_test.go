@@ -49,3 +49,19 @@ func TestValidateAccessChecksConfiguredUpstreams(t *testing.T) {
 		t.Fatalf("Reason = %q, want host lookup error", resp.Reason)
 	}
 }
+
+func TestValidateAccessRejectsUnknownAction(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID: "user-1",
+		Action: "delete",
+	})
+
+	if resp.Allowed {
+		t.Fatal("Allowed = true, want false")
+	}
+	if !strings.Contains(resp.Reason, "action") {
+		t.Fatalf("Reason = %q, want action validation error", resp.Reason)
+	}
+}

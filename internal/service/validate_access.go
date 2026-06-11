@@ -10,6 +10,9 @@ func (s *Service) ValidateAccess(ctx context.Context, req model.ValidateRequest)
 	if req.UserID == "" {
 		return model.ValidateResponse{Allowed: false, Reason: "userId is required"}
 	}
+	if req.Action != "start" && req.Action != "rejoin" && req.Action != "observe" {
+		return model.ValidateResponse{Allowed: false, Reason: "action must be start, rejoin or observe"}
+	}
 	if req.Action == "start" && (req.HostID == "" || req.CRID == "") {
 		return model.ValidateResponse{Allowed: false, Reason: "hostId and crId are required for start"}
 	}
