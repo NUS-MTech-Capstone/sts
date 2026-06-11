@@ -2,18 +2,18 @@ package service
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/change_request"
 	"github.com/NUS-MTech-Capstone/sts/internal/server_inventory"
 )
 
-type tokenRecord struct {
-	sessionID string
-	userID    string
-	mode      string
-	expiresAt time.Time
+type TokenConfig struct {
+	TTL        time.Duration
+	SigningKey []byte
+	Issuer     string
+	Audience   string
+	ClockSkew  time.Duration
 }
 
 type ChangeRequestClient interface {
@@ -25,22 +25,20 @@ type ServerInventoryClient interface {
 }
 
 type Service struct {
-	mu              sync.RWMutex
-	tokens          map[string]tokenRecord
-	ttl             time.Duration
+	tokenConfig     TokenConfig
 	now             func() time.Time
 	changeRequests  ChangeRequestClient
 	serverInventory ServerInventoryClient
 }
 
 func New(
-	ttl time.Duration,
+	tokenConfig TokenConfig,
 	changeRequests ChangeRequestClient,
 	serverInventory ServerInventoryClient,
 ) *Service {
+	tokenConfig.SigningKey = append([]byte(nil), tokenConfig.SigningKey...)
 	return &Service{
-		tokens:          make(map[string]tokenRecord),
-		ttl:             ttl,
+		tokenConfig:     tokenConfig,
 		now:             time.Now,
 		changeRequests:  changeRequests,
 		serverInventory: serverInventory,

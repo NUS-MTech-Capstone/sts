@@ -13,6 +13,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatal(err)
+	}
 	var changeRequests service.ChangeRequestClient
 	if cfg.ChangeRequestURL != "" {
 		changeRequests = change_request.New(cfg.ChangeRequestURL, cfg.UpstreamClientTimeout)
@@ -26,6 +29,16 @@ func main() {
 	log.Printf("sts listening on %s", addr)
 	log.Fatal(http.ListenAndServe(
 		addr,
-		httpapi.New(service.New(cfg.TokenTTL, changeRequests, serverInventory)),
+		httpapi.New(service.New(
+			service.TokenConfig{
+				TTL:        cfg.TokenTTL,
+				SigningKey: []byte(cfg.JWTSigningKey),
+				Issuer:     cfg.JWTIssuer,
+				Audience:   cfg.JWTAudience,
+				ClockSkew:  cfg.JWTClockSkew,
+			},
+			changeRequests,
+			serverInventory,
+		)),
 	))
 }

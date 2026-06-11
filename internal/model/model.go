@@ -22,6 +22,7 @@ type SessionTokenRequest struct {
 }
 
 type SessionTokenResponse struct {
+	TokenType    string    `json:"tokenType"`
 	SessionToken string    `json:"sessionToken"`
 	ExpiresAt    time.Time `json:"expiresAt"`
 }

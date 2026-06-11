@@ -30,7 +30,7 @@ func (s serverInventoryStub) Get(context.Context, string) (server_inventory.Serv
 
 func TestValidateAccessChecksConfiguredUpstreams(t *testing.T) {
 	svc := New(
-		time.Minute,
+		TokenConfig{TTL: time.Minute},
 		changeRequestStub{},
 		serverInventoryStub{err: errors.New("host not found")},
 	)
