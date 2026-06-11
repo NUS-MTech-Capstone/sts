@@ -1,8 +1,7 @@
-# sts
 # STS
 
-Mock Security Token Service for the MVP. It validates well-formed access
-requests and issues short-lived opaque session tokens.
+Security Token Service. It validates well-formed access
+requests and issues short-lived session tokens.
 
 ## Run
 
