@@ -29,5 +29,7 @@ POST /tokens/session
 POST /tokens/validate
 ```
 
-`/tokens/validate` is included so the proxy dataplane can validate WebSocket
-session tokens during the local MVP.
+`/tokens/validate` is used by the proxy dataplane and DDM Agent. Validation may
+include `userId` and `mode`; when supplied, STS requires them to match the token
+record. The DDM Agent requires `mode: "owner"` before command execution, so an
+observer token cannot run commands.

@@ -13,6 +13,9 @@ func (s *Service) IssueSessionToken(_ context.Context, req model.SessionTokenReq
 	if req.SessionID == "" || req.UserID == "" {
 		return model.SessionTokenResponse{}, errors.New("sessionId and userId are required")
 	}
+	if req.Mode != "owner" && req.Mode != "observer" {
+		return model.SessionTokenResponse{}, errors.New("mode must be owner or observer")
+	}
 	tokenBytes := make([]byte, 24)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return model.SessionTokenResponse{}, err
@@ -20,7 +23,12 @@ func (s *Service) IssueSessionToken(_ context.Context, req model.SessionTokenReq
 	token := "ddm_" + hex.EncodeToString(tokenBytes)
 	expiresAt := s.now().UTC().Add(s.ttl)
 	s.mu.Lock()
-	s.tokens[token] = tokenRecord{sessionID: req.SessionID, expiresAt: expiresAt}
+	s.tokens[token] = tokenRecord{
+		sessionID: req.SessionID,
+		userID:    req.UserID,
+		mode:      req.Mode,
+		expiresAt: expiresAt,
+	}
 	s.mu.Unlock()
 	return model.SessionTokenResponse{SessionToken: token, ExpiresAt: expiresAt}, nil
 }
@@ -34,6 +42,12 @@ func (s *Service) ValidateSessionToken(_ context.Context, req model.TokenValidat
 	}
 	if record.sessionID != req.SessionID {
 		return model.ValidateResponse{Allowed: false, Reason: "token session mismatch"}
+	}
+	if req.UserID != "" && record.userID != req.UserID {
+		return model.ValidateResponse{Allowed: false, Reason: "token user mismatch"}
+	}
+	if req.Mode != "" && record.mode != req.Mode {
+		return model.ValidateResponse{Allowed: false, Reason: "token mode mismatch"}
 	}
 	if !record.expiresAt.After(s.now()) {
 		return model.ValidateResponse{Allowed: false, Reason: "token expired"}

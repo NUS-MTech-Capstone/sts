@@ -11,6 +11,8 @@ import (
 
 type tokenRecord struct {
 	sessionID string
+	userID    string
+	mode      string
 	expiresAt time.Time
 }
 

@@ -28,5 +28,7 @@ type SessionTokenResponse struct {
 
 type TokenValidateRequest struct {
 	SessionID string `json:"sessionId"`
+	UserID    string `json:"userId,omitempty"`
+	Mode      string `json:"mode,omitempty"`
 	Token     string `json:"token"`
 }
