@@ -7,16 +7,21 @@ import (
 )
 
 type Config struct {
-	Port     string
-	TokenTTL time.Duration
+	Port                  string
+	TokenTTL              time.Duration
+	ChangeRequestURL      string
+	ServerInventoryURL    string
+	UpstreamClientTimeout time.Duration
 }
 
 func Load() Config {
-	ttl, err := strconv.Atoi(env("SESSION_TOKEN_TTL_SECONDS", "300"))
-	if err != nil {
-		ttl = 300
+	return Config{
+		Port:                  env("PORT", "8082"),
+		TokenTTL:              secondsEnv("SESSION_TOKEN_TTL_SECONDS", 300),
+		ChangeRequestURL:      os.Getenv("CHANGE_REQUEST_URL"),
+		ServerInventoryURL:    os.Getenv("SERVER_INVENTORY_URL"),
+		UpstreamClientTimeout: secondsEnv("UPSTREAM_CLIENT_TIMEOUT_SECONDS", 5),
 	}
-	return Config{Port: env("PORT", "8082"), TokenTTL: time.Duration(ttl) * time.Second}
 }
 
 func env(key, fallback string) string {
@@ -24,4 +29,12 @@ func env(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func secondsEnv(key string, fallback int) time.Duration {
+	value, err := strconv.Atoi(env(key, strconv.Itoa(fallback)))
+	if err != nil {
+		value = fallback
+	}
+	return time.Duration(value) * time.Second
 }

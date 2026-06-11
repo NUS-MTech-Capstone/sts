@@ -2,10 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"net/http"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/model"
 )

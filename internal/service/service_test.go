@@ -9,7 +9,7 @@ import (
 )
 
 func TestIssueAndValidateSessionToken(t *testing.T) {
-	svc := New(time.Minute)
+	svc := New(time.Minute, nil, nil)
 	ctx := context.Background()
 	token, err := svc.IssueSessionToken(ctx, model.SessionTokenRequest{SessionID: "sess-1", UserID: "user-1", Mode: "owner"})
 	if err != nil {

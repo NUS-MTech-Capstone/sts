@@ -5,7 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NUS-MTech-Capstone/sts/internal/model"
+	"github.com/NUS-MTech-Capstone/sts/internal/change_request"
+	"github.com/NUS-MTech-Capstone/sts/internal/server_inventory"
 )
 
 type tokenRecord struct {
@@ -13,13 +14,33 @@ type tokenRecord struct {
 	expiresAt time.Time
 }
 
-type Service struct {
-	mu     sync.RWMutex
-	tokens map[string]tokenRecord
-	ttl    time.Duration
-	now    func() time.Time
+type ChangeRequestClient interface {
+	Get(context.Context, string) (change_request.ChangeRequest, error)
 }
 
-func New(ttl time.Duration) *Service {
-	return &Service{tokens: make(map[string]tokenRecord), ttl: ttl, now: time.Now}
+type ServerInventoryClient interface {
+	Get(context.Context, string) (server_inventory.Server, error)
+}
+
+type Service struct {
+	mu              sync.RWMutex
+	tokens          map[string]tokenRecord
+	ttl             time.Duration
+	now             func() time.Time
+	changeRequests  ChangeRequestClient
+	serverInventory ServerInventoryClient
+}
+
+func New(
+	ttl time.Duration,
+	changeRequests ChangeRequestClient,
+	serverInventory ServerInventoryClient,
+) *Service {
+	return &Service{
+		tokens:          make(map[string]tokenRecord),
+		ttl:             ttl,
+		now:             time.Now,
+		changeRequests:  changeRequests,
+		serverInventory: serverInventory,
+	}
 }
