@@ -21,11 +21,12 @@ func (s changeRequestStub) Get(context.Context, string) (change_request.ChangeRe
 }
 
 type serverInventoryStub struct {
-	err error
+	server server_inventory.Server
+	err    error
 }
 
 func (s serverInventoryStub) Get(context.Context, string) (server_inventory.Server, error) {
-	return server_inventory.Server{}, s.err
+	return s.server, s.err
 }
 
 func TestValidateAccessChecksConfiguredUpstreams(t *testing.T) {

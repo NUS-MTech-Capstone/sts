@@ -8,28 +8,30 @@ import (
 )
 
 type Config struct {
-	Port                  string
-	TokenTTL              time.Duration
-	JWTSigningKey         string
-	JWTIssuer             string
-	JWTAudience           string
-	JWTClockSkew          time.Duration
-	ChangeRequestURL      string
-	ServerInventoryURL    string
-	UpstreamClientTimeout time.Duration
+	Port                      string
+	TokenTTL                  time.Duration
+	JWTSigningKey             string
+	JWTIssuer                 string
+	JWTAudience               string
+	JWTClockSkew              time.Duration
+	ChangeRequestURL          string
+	ServerInventoryURL        string
+	ServerInventoryStaticJSON string
+	UpstreamClientTimeout     time.Duration
 }
 
 func Load() Config {
 	return Config{
-		Port:                  env("PORT", "8082"),
-		TokenTTL:              secondsEnv("SESSION_TOKEN_TTL_SECONDS", 300),
-		JWTSigningKey:         os.Getenv("JWT_SIGNING_KEY"),
-		JWTIssuer:             env("JWT_ISSUER", "dendenmushi-sts"),
-		JWTAudience:           env("JWT_AUDIENCE", "dendenmushi-session"),
-		JWTClockSkew:          secondsEnv("JWT_CLOCK_SKEW_SECONDS", 5),
-		ChangeRequestURL:      os.Getenv("CHANGE_REQUEST_URL"),
-		ServerInventoryURL:    os.Getenv("SERVER_INVENTORY_URL"),
-		UpstreamClientTimeout: secondsEnv("UPSTREAM_CLIENT_TIMEOUT_SECONDS", 5),
+		Port:                      env("PORT", "8082"),
+		TokenTTL:                  secondsEnv("SESSION_TOKEN_TTL_SECONDS", 300),
+		JWTSigningKey:             os.Getenv("JWT_SIGNING_KEY"),
+		JWTIssuer:                 env("JWT_ISSUER", "dendenmushi-sts"),
+		JWTAudience:               env("JWT_AUDIENCE", "dendenmushi-session"),
+		JWTClockSkew:              secondsEnv("JWT_CLOCK_SKEW_SECONDS", 5),
+		ChangeRequestURL:          os.Getenv("CHANGE_REQUEST_URL"),
+		ServerInventoryURL:        os.Getenv("SERVER_INVENTORY_URL"),
+		ServerInventoryStaticJSON: os.Getenv("SERVER_INVENTORY_STATIC_JSON"),
+		UpstreamClientTimeout:     secondsEnv("UPSTREAM_CLIENT_TIMEOUT_SECONDS", 5),
 	}
 }
 

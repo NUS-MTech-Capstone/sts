@@ -11,14 +11,19 @@ type ValidateRequest struct {
 }
 
 type ValidateResponse struct {
-	Allowed bool   `json:"allowed"`
-	Reason  string `json:"reason,omitempty"`
+	Allowed bool           `json:"allowed"`
+	Reason  string         `json:"reason,omitempty"`
+	Claims  *SessionClaims `json:"claims,omitempty"`
 }
 
 type SessionTokenRequest struct {
-	SessionID string `json:"sessionId"`
-	UserID    string `json:"userId"`
-	Mode      string `json:"mode"`
+	SessionID      string `json:"sessionId"`
+	UserID         string `json:"userId"`
+	HostID         string `json:"hostId"`
+	CRID           string `json:"crId"`
+	ConnectionType string `json:"connectionType"`
+	Action         string `json:"action"`
+	Mode           string `json:"mode"`
 }
 
 type SessionTokenResponse struct {
@@ -30,6 +35,19 @@ type SessionTokenResponse struct {
 type TokenValidateRequest struct {
 	SessionID string `json:"sessionId"`
 	UserID    string `json:"userId,omitempty"`
-	Mode      string `json:"mode,omitempty"`
 	Token     string `json:"token"`
+}
+
+type SessionClaims struct {
+	SessionID          string `json:"sessionId"`
+	UserID             string `json:"userId"`
+	HostID             string `json:"hostId"`
+	CRID               string `json:"crId"`
+	ConnectionType     string `json:"connectionType"`
+	Action             string `json:"action"`
+	Mode               string `json:"mode"`
+	Address            string `json:"address,omitempty"`
+	Username           string `json:"username,omitempty"`
+	CredentialSecretID string `json:"credentialSecretId,omitempty"`
+	HostPublicKey      string `json:"hostPublicKey,omitempty"`
 }

@@ -23,6 +23,12 @@ func main() {
 	var serverInventory service.ServerInventoryClient
 	if cfg.ServerInventoryURL != "" {
 		serverInventory = server_inventory.New(cfg.ServerInventoryURL, cfg.UpstreamClientTimeout)
+	} else if cfg.ServerInventoryStaticJSON != "" {
+		staticInventory, err := server_inventory.NewStatic(cfg.ServerInventoryStaticJSON)
+		if err != nil {
+			log.Fatal(err)
+		}
+		serverInventory = staticInventory
 	}
 
 	addr := ":" + cfg.Port

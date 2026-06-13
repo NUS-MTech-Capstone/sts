@@ -13,6 +13,21 @@ SERVER_INVENTORY_URL=http://localhost:8086 \
 go run ./cmd/server
 ```
 
+For local development without a server-inventory service, configure a trusted
+static inventory:
+
+```bash
+SERVER_INVENTORY_STATIC_JSON='{
+  "host-123": {
+    "address": "server.example:22",
+    "username": "ubuntu",
+    "connectionType": "ssh",
+    "credentialSecretId": "dendenmushi/host-123",
+    "hostPublicKey": "ssh-ed25519 AAAA..."
+  }
+}'
+```
+
 `JWT_SIGNING_KEY` is required and must contain at least 32 bytes. All STS
 instances and token-verifying services must use the same secret. Generate one
 for local development with `openssl rand -base64 32`.
@@ -43,12 +58,12 @@ POST /tokens/session
 POST /tokens/validate
 ```
 
-`/tokens/validate` is used by the proxy dataplane and DDM Agent. Validation may
-include `userId` and `mode`; when supplied, STS requires them to match the JWT
-claims. The DDM Agent requires `mode: "owner"` before command execution, so an
-observer token cannot run commands.
+`/tokens/validate` is used by the proxy dataplane. A successful response returns
+the verified claims. Tokens bind the session action (`start`, `rejoin`, or
+`observe`), mode, host, change request, connection type, and trusted SSH target
+metadata. Observer tokens cannot become writable owner connections.
 
 Session tokens are RFC 7519 JWTs signed with JWS `HS256`. They include the
 registered `iss`, `sub`, `aud`, `exp`, `nbf`, `iat`, and `jti` claims plus the
-private `sessionId` and `mode` claims. Verification only accepts `HS256` and
+private session and SSH target claims. Verification only accepts `HS256` and
 requires the configured issuer, audience, expiration, and issued-at values.

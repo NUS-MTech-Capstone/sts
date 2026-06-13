@@ -16,10 +16,14 @@ type Client struct {
 }
 
 type Server struct {
-	HostID   string `json:"hostId"`
-	Hostname string `json:"hostname,omitempty"`
-	Address  string `json:"address,omitempty"`
-	Status   string `json:"status,omitempty"`
+	HostID             string `json:"hostId"`
+	Hostname           string `json:"hostname,omitempty"`
+	Address            string `json:"address,omitempty"`
+	Status             string `json:"status,omitempty"`
+	ConnectionType     string `json:"connectionType,omitempty"`
+	Username           string `json:"username,omitempty"`
+	CredentialSecretID string `json:"credentialSecretId,omitempty"`
+	HostPublicKey      string `json:"hostPublicKey,omitempty"`
 }
 
 func New(baseURL string, timeout time.Duration) *Client {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/model"
+	"github.com/NUS-MTech-Capstone/sts/internal/server_inventory"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -22,11 +23,26 @@ func testTokenConfig() TokenConfig {
 	}
 }
 
+func testInventory() ServerInventoryClient {
+	return serverInventoryStub{server: server_inventory.Server{
+		HostID: "host-1", Address: "server.example:22", Username: "ubuntu",
+		ConnectionType: "ssh", CredentialSecretID: "secret/host-1",
+		HostPublicKey: "ssh-ed25519 AAAATEST",
+	}}
+}
+
+func testTokenRequest(action, mode string) model.SessionTokenRequest {
+	return model.SessionTokenRequest{
+		SessionID: "sess-1", UserID: "user-1", HostID: "host-1", CRID: "cr-1",
+		ConnectionType: "ssh", Action: action, Mode: mode,
+	}
+}
+
 func TestIssueAndValidateSessionToken(t *testing.T) {
-	svc := New(testTokenConfig(), nil, nil)
+	svc := New(testTokenConfig(), nil, testInventory())
 	svc.now = func() time.Time { return testNow }
 	ctx := context.Background()
-	token, err := svc.IssueSessionToken(ctx, model.SessionTokenRequest{SessionID: "sess-1", UserID: "user-1", Mode: "owner"})
+	token, err := svc.IssueSessionToken(ctx, testTokenRequest("start", "owner"))
 	if err != nil {
 		t.Fatalf("IssueSessionToken() error = %v", err)
 	}
@@ -38,12 +54,11 @@ func TestIssueAndValidateSessionToken(t *testing.T) {
 	}
 
 	// A separate service instance can verify the JWT without shared token state.
-	verifier := New(testTokenConfig(), nil, nil)
+	verifier := New(testTokenConfig(), nil, testInventory())
 	verifier.now = func() time.Time { return testNow }
 	resp := verifier.ValidateSessionToken(ctx, model.TokenValidateRequest{
 		SessionID: "sess-1",
 		UserID:    "user-1",
-		Mode:      "owner",
 		Token:     token.SessionToken,
 	})
 	if !resp.Allowed {
@@ -63,63 +78,41 @@ func TestIssueAndValidateSessionToken(t *testing.T) {
 	}
 	if claims.Issuer != "test-sts" || claims.Subject != "user-1" ||
 		len(claims.Audience) != 1 || claims.Audience[0] != "test-session" ||
-		claims.SessionID != "sess-1" || claims.Mode != "owner" ||
+		claims.SessionID != "sess-1" || claims.Mode != "owner" || claims.Action != "start" ||
+		claims.HostID != "host-1" || claims.CRID != "cr-1" || claims.ConnectionType != "ssh" ||
+		claims.Address != "server.example:22" || claims.Username != "ubuntu" ||
 		claims.ExpiresAt == nil || claims.IssuedAt == nil || claims.NotBefore == nil || claims.ID == "" {
 		t.Fatalf("unexpected claims: %#v", claims)
 	}
 }
 
-func TestValidateSessionTokenRejectsWrongUserOrMode(t *testing.T) {
-	svc := New(testTokenConfig(), nil, nil)
+func TestValidateSessionTokenRejectsWrongUser(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory())
 	svc.now = func() time.Time { return testNow }
-	token, err := svc.IssueSessionToken(t.Context(), model.SessionTokenRequest{
-		SessionID: "sess-1",
-		UserID:    "user-1",
-		Mode:      "observer",
-	})
+	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "observer"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, test := range []struct {
-		name string
-		req  model.TokenValidateRequest
-	}{
-		{
-			name: "user",
-			req: model.TokenValidateRequest{
-				SessionID: "sess-1",
-				UserID:    "other-user",
-				Mode:      "observer",
-				Token:     token.SessionToken,
-			},
-		},
-		{
-			name: "mode",
-			req: model.TokenValidateRequest{
-				SessionID: "sess-1",
-				UserID:    "user-1",
-				Mode:      "owner",
-				Token:     token.SessionToken,
-			},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if resp := svc.ValidateSessionToken(t.Context(), test.req); resp.Allowed {
-				t.Fatal("ValidateSessionToken() allowed mismatched token")
-			}
-		})
+	resp := svc.ValidateSessionToken(t.Context(), model.TokenValidateRequest{
+		SessionID: "sess-1", UserID: "other-user", Token: token.SessionToken,
+	})
+	if resp.Allowed {
+		t.Fatal("ValidateSessionToken() allowed mismatched user")
+	}
+}
+
+func TestIssueSessionTokenRejectsInvalidActionMode(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory())
+	if _, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "owner")); err == nil {
+		t.Fatal("IssueSessionToken() accepted observe owner token")
 	}
 }
 
 func TestValidateSessionTokenRejectsExpiredOrTamperedJWT(t *testing.T) {
-	svc := New(testTokenConfig(), nil, nil)
+	svc := New(testTokenConfig(), nil, testInventory())
 	svc.now = func() time.Time { return testNow }
-	token, err := svc.IssueSessionToken(t.Context(), model.SessionTokenRequest{
-		SessionID: "sess-1",
-		UserID:    "user-1",
-		Mode:      "owner",
-	})
+	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("start", "owner"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,13 +146,9 @@ func TestValidateSessionTokenRejectsExpiredOrTamperedJWT(t *testing.T) {
 }
 
 func TestValidateSessionTokenRejectsWrongSigningContext(t *testing.T) {
-	issuer := New(testTokenConfig(), nil, nil)
+	issuer := New(testTokenConfig(), nil, testInventory())
 	issuer.now = func() time.Time { return testNow }
-	token, err := issuer.IssueSessionToken(t.Context(), model.SessionTokenRequest{
-		SessionID: "sess-1",
-		UserID:    "user-1",
-		Mode:      "owner",
-	})
+	token, err := issuer.IssueSessionToken(t.Context(), testTokenRequest("start", "owner"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +185,7 @@ func TestValidateSessionTokenRejectsWrongSigningContext(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			verifier := New(test.config, nil, nil)
+			verifier := New(test.config, nil, testInventory())
 			verifier.now = func() time.Time { return testNow }
 			resp := verifier.ValidateSessionToken(t.Context(), model.TokenValidateRequest{
 				SessionID: "sess-1",
