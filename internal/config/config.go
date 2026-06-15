@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Port                      string
 	TokenTTL                  time.Duration
+	AutomationTokenTTL        time.Duration
 	JWTSigningKey             string
 	JWTIssuer                 string
 	JWTAudience               string
@@ -18,12 +19,19 @@ type Config struct {
 	ServerInventoryURL        string
 	ServerInventoryStaticJSON string
 	UpstreamClientTimeout     time.Duration
+	KubernetesAPIURL          string
+	KubernetesTokenFile       string
+	KubernetesCAFile          string
+	AutomationAudience        string
+	AutomationNamespace       string
+	AutomationServiceAccount  string
 }
 
 func Load() Config {
 	return Config{
 		Port:                      env("PORT", "8082"),
 		TokenTTL:                  secondsEnv("SESSION_TOKEN_TTL_SECONDS", 300),
+		AutomationTokenTTL:        secondsEnv("AUTOMATION_TOKEN_TTL_SECONDS", 600),
 		JWTSigningKey:             os.Getenv("JWT_SIGNING_KEY"),
 		JWTIssuer:                 env("JWT_ISSUER", "dendenmushi-sts"),
 		JWTAudience:               env("JWT_AUDIENCE", "dendenmushi-session"),
@@ -32,6 +40,12 @@ func Load() Config {
 		ServerInventoryURL:        os.Getenv("SERVER_INVENTORY_URL"),
 		ServerInventoryStaticJSON: os.Getenv("SERVER_INVENTORY_STATIC_JSON"),
 		UpstreamClientTimeout:     secondsEnv("UPSTREAM_CLIENT_TIMEOUT_SECONDS", 5),
+		KubernetesAPIURL:          env("KUBERNETES_API_URL", "https://kubernetes.default.svc"),
+		KubernetesTokenFile:       env("KUBERNETES_TOKEN_FILE", "/var/run/secrets/kubernetes.io/serviceaccount/token"),
+		KubernetesCAFile:          env("KUBERNETES_CA_FILE", "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"),
+		AutomationAudience:        env("AUTOMATION_WORKLOAD_AUDIENCE", "dendenmushi-incident-agent"),
+		AutomationNamespace:       env("AUTOMATION_WORKLOAD_NAMESPACE", "dendenmushi"),
+		AutomationServiceAccount:  env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent"),
 	}
 }
 
@@ -41,6 +55,9 @@ func (c Config) Validate() error {
 	}
 	if c.TokenTTL <= 0 {
 		return errors.New("SESSION_TOKEN_TTL_SECONDS must be positive")
+	}
+	if c.AutomationTokenTTL <= 0 {
+		return errors.New("AUTOMATION_TOKEN_TTL_SECONDS must be positive")
 	}
 	if c.JWTIssuer == "" {
 		return errors.New("JWT_ISSUER is required")

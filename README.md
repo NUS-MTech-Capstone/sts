@@ -36,6 +36,7 @@ Optional token settings:
 
 ```bash
 SESSION_TOKEN_TTL_SECONDS=300
+AUTOMATION_TOKEN_TTL_SECONDS=600
 JWT_ISSUER=dendenmushi-sts
 JWT_AUDIENCE=dendenmushi-session
 JWT_CLOCK_SKEW_SECONDS=5
@@ -56,6 +57,8 @@ GET  /healthz
 POST /validate
 POST /tokens/session
 POST /tokens/validate
+POST /tokens/automation
+POST /tokens/automation/validate
 ```
 
 `/tokens/validate` is used by the proxy dataplane. A successful response returns
@@ -67,3 +70,22 @@ Session tokens are RFC 7519 JWTs signed with JWS `HS256`. They include the
 registered `iss`, `sub`, `aud`, `exp`, `nbf`, `iat`, and `jti` claims plus the
 private session and SSH target claims. Verification only accepts `HS256` and
 requires the configured issuer, audience, expiration, and issued-at values.
+
+Automation capability tokens are a separate JWT type and cannot be used as
+interactive session tokens. Issuance requires a projected Kubernetes
+service-account token that passes TokenReview for the configured namespace,
+service account, and audience. Capabilities bind the run, incident, host,
+phase, operation allowlist, assigned pod instance, and remediation plan hash.
+
+Trusted inventory entries may include:
+
+```json
+{
+  "automation": {
+    "serviceName": "myapp",
+    "healthUrl": "http://127.0.0.1:8080/healthz",
+    "helperPath": "/usr/local/sbin/ddm-ops",
+    "allowedOperations": ["service_status", "health_check", "restart_service"]
+  }
+}
+```

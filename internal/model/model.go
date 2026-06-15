@@ -51,3 +51,49 @@ type SessionClaims struct {
 	CredentialSecretID string `json:"credentialSecretId,omitempty"`
 	HostPublicKey      string `json:"hostPublicKey,omitempty"`
 }
+
+type AutomationTokenRequest struct {
+	RunID             string   `json:"runId"`
+	IncidentID        string   `json:"incidentId"`
+	HostID            string   `json:"hostId"`
+	Phase             string   `json:"phase"`
+	AllowedOperations []string `json:"allowedOperations"`
+	PlanHash          string   `json:"planHash,omitempty"`
+	OwnerPodID        string   `json:"ownerPodId"`
+	OwnerInstanceID   string   `json:"ownerInstanceId"`
+}
+
+type AutomationTokenResponse struct {
+	TokenType       string    `json:"tokenType"`
+	CapabilityToken string    `json:"capabilityToken"`
+	ExpiresAt       time.Time `json:"expiresAt"`
+}
+
+type AutomationTokenValidateRequest struct {
+	RunID string `json:"runId"`
+	Token string `json:"token"`
+}
+
+type AutomationClaims struct {
+	RunID              string   `json:"runId"`
+	IncidentID         string   `json:"incidentId"`
+	HostID             string   `json:"hostId"`
+	Phase              string   `json:"phase"`
+	AllowedOperations  []string `json:"allowedOperations"`
+	PlanHash           string   `json:"planHash,omitempty"`
+	OwnerPodID         string   `json:"ownerPodId"`
+	OwnerInstanceID    string   `json:"ownerInstanceId"`
+	Address            string   `json:"address"`
+	Username           string   `json:"username"`
+	CredentialSecretID string   `json:"credentialSecretId"`
+	HostPublicKey      string   `json:"hostPublicKey"`
+	ServiceName        string   `json:"serviceName"`
+	HealthURL          string   `json:"healthUrl"`
+	HelperPath         string   `json:"helperPath"`
+}
+
+type AutomationValidateResponse struct {
+	Allowed bool              `json:"allowed"`
+	Reason  string            `json:"reason,omitempty"`
+	Claims  *AutomationClaims `json:"claims,omitempty"`
+}

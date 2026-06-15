@@ -16,14 +16,22 @@ type Client struct {
 }
 
 type Server struct {
-	HostID             string `json:"hostId"`
-	Hostname           string `json:"hostname,omitempty"`
-	Address            string `json:"address,omitempty"`
-	Status             string `json:"status,omitempty"`
-	ConnectionType     string `json:"connectionType,omitempty"`
-	Username           string `json:"username,omitempty"`
-	CredentialSecretID string `json:"credentialSecretId,omitempty"`
-	HostPublicKey      string `json:"hostPublicKey,omitempty"`
+	HostID             string            `json:"hostId"`
+	Hostname           string            `json:"hostname,omitempty"`
+	Address            string            `json:"address,omitempty"`
+	Status             string            `json:"status,omitempty"`
+	ConnectionType     string            `json:"connectionType,omitempty"`
+	Username           string            `json:"username,omitempty"`
+	CredentialSecretID string            `json:"credentialSecretId,omitempty"`
+	HostPublicKey      string            `json:"hostPublicKey,omitempty"`
+	Automation         AutomationProfile `json:"automation,omitempty"`
+}
+
+type AutomationProfile struct {
+	ServiceName       string   `json:"serviceName,omitempty"`
+	HealthURL         string   `json:"healthUrl,omitempty"`
+	HelperPath        string   `json:"helperPath,omitempty"`
+	AllowedOperations []string `json:"allowedOperations,omitempty"`
 }
 
 func New(baseURL string, timeout time.Duration) *Client {

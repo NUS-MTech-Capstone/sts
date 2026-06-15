@@ -11,6 +11,7 @@ import (
 )
 
 type sessionClaims struct {
+	TokenUse           string `json:"tokenUse"`
 	HostID             string `json:"hostId"`
 	CRID               string `json:"crId"`
 	ConnectionType     string `json:"connectionType"`
@@ -65,6 +66,7 @@ func (s *Service) IssueSessionToken(ctx context.Context, req model.SessionTokenR
 	issuedAt := s.now().UTC().Truncate(jwt.TimePrecision)
 	expiresAt := issuedAt.Add(s.tokenConfig.TTL)
 	claims := sessionClaims{
+		TokenUse:           "session",
 		SessionID:          req.SessionID,
 		HostID:             req.HostID,
 		CRID:               req.CRID,
@@ -130,7 +132,7 @@ func (s *Service) ValidateSessionToken(_ context.Context, req model.TokenValidat
 		}
 		return model.ValidateResponse{Allowed: false, Reason: "invalid token"}
 	}
-	if claims.Subject == "" || claims.IssuedAt == nil || claims.NotBefore == nil || claims.ID == "" ||
+	if claims.TokenUse != "session" || claims.Subject == "" || claims.IssuedAt == nil || claims.NotBefore == nil || claims.ID == "" ||
 		claims.SessionID == "" || claims.HostID == "" || claims.CRID == "" || claims.ConnectionType == "" ||
 		!validActionMode(claims.Action, claims.Mode) {
 		return model.ValidateResponse{Allowed: false, Reason: "invalid token claims"}

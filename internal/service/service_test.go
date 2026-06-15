@@ -28,13 +28,87 @@ func testInventory() ServerInventoryClient {
 		HostID: "host-1", Address: "server.example:22", Username: "ubuntu",
 		ConnectionType: "ssh", CredentialSecretID: "secret/host-1",
 		HostPublicKey: "ssh-ed25519 AAAATEST",
+		Automation: server_inventory.AutomationProfile{
+			ServiceName: "myapp", HealthURL: "http://127.0.0.1:8080/healthz",
+			HelperPath:        "/usr/local/sbin/ddm-ops",
+			AllowedOperations: []string{"service_status", "health_check", "restart_service"},
+		},
 	}}
+}
+
+type workloadStub struct{}
+
+func (workloadStub) Validate(context.Context, string) (string, error) {
+	return "system:serviceaccount:dendenmushi:incident-agent", nil
 }
 
 func testTokenRequest(action, mode string) model.SessionTokenRequest {
 	return model.SessionTokenRequest{
 		SessionID: "sess-1", UserID: "user-1", HostID: "host-1", CRID: "cr-1",
 		ConnectionType: "ssh", Action: action, Mode: mode,
+	}
+}
+
+func TestIssueAndValidateAutomationToken(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory(), workloadStub{})
+	svc.now = func() time.Time { return testNow }
+	token, err := svc.IssueAutomationToken(t.Context(), "workload-token", model.AutomationTokenRequest{
+		RunID: "run-1", IncidentID: "inc-1", HostID: "host-1", Phase: "remediate",
+		AllowedOperations: []string{"restart_service"}, PlanHash: "plan-hash",
+		OwnerPodID: "pod-1", OwnerInstanceID: "instance-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := svc.ValidateAutomationToken(t.Context(), model.AutomationTokenValidateRequest{
+		RunID: "run-1", Token: token.CapabilityToken,
+	})
+	if !resp.Allowed || resp.Claims == nil {
+		t.Fatalf("validation = %#v", resp)
+	}
+	if resp.Claims.PlanHash != "plan-hash" || resp.Claims.HelperPath != "/usr/local/sbin/ddm-ops" {
+		t.Fatalf("claims = %#v", resp.Claims)
+	}
+	sessionResp := svc.ValidateSessionToken(t.Context(), model.TokenValidateRequest{
+		SessionID: "run-1", Token: token.CapabilityToken,
+	})
+	if sessionResp.Allowed {
+		t.Fatal("automation token was accepted as a session token")
+	}
+}
+
+func TestIssueAutomationTokenRejectsUnapprovedOperation(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory(), workloadStub{})
+	_, err := svc.IssueAutomationToken(t.Context(), "workload-token", model.AutomationTokenRequest{
+		RunID: "run-1", IncidentID: "inc-1", HostID: "host-1", Phase: "diagnose",
+		AllowedOperations: []string{"arbitrary_shell"}, OwnerPodID: "pod-1", OwnerInstanceID: "instance-1",
+	})
+	if err == nil {
+		t.Fatal("unapproved operation was accepted")
+	}
+}
+
+func TestValidateAutomationTokenRejectsExpiredAndWrongRun(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory(), workloadStub{})
+	svc.now = func() time.Time { return testNow }
+	token, err := svc.IssueAutomationToken(t.Context(), "workload-token", model.AutomationTokenRequest{
+		RunID: "run-1", IncidentID: "inc-1", HostID: "host-1", Phase: "verify",
+		AllowedOperations: []string{"health_check"},
+		OwnerPodID:        "pod-1", OwnerInstanceID: "instance-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp := svc.ValidateAutomationToken(t.Context(), model.AutomationTokenValidateRequest{
+		RunID: "run-2", Token: token.CapabilityToken,
+	}); resp.Allowed {
+		t.Fatal("automation token was accepted for the wrong run")
+	}
+	svc.now = func() time.Time { return testNow.Add(time.Minute + 6*time.Second) }
+	if resp := svc.ValidateAutomationToken(t.Context(), model.AutomationTokenValidateRequest{
+		RunID: "run-1", Token: token.CapabilityToken,
+	}); resp.Allowed {
+		t.Fatal("expired automation token was accepted")
 	}
 }
 
