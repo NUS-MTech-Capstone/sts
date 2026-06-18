@@ -1,21 +1,25 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/change_request"
 	"github.com/NUS-MTech-Capstone/sts/internal/config"
 	"github.com/NUS-MTech-Capstone/sts/internal/httpapi"
+	"github.com/NUS-MTech-Capstone/sts/internal/observability"
 	"github.com/NUS-MTech-Capstone/sts/internal/server_inventory"
 	"github.com/NUS-MTech-Capstone/sts/internal/service"
 	"github.com/NUS-MTech-Capstone/sts/internal/workload"
 )
 
 func main() {
+	observability.ConfigureLogger("sts")
 	cfg := config.Load()
 	if err := cfg.Validate(); err != nil {
-		log.Fatal(err)
+		slog.Error("config validation failed", "error", err)
+		os.Exit(1)
 	}
 	var changeRequests service.ChangeRequestClient
 	if cfg.ChangeRequestURL != "" {
@@ -27,7 +31,8 @@ func main() {
 	} else if cfg.ServerInventoryStaticJSON != "" {
 		staticInventory, err := server_inventory.NewStatic(cfg.ServerInventoryStaticJSON)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("static server inventory failed", "error", err)
+			os.Exit(1)
 		}
 		serverInventory = staticInventory
 	}
@@ -37,11 +42,11 @@ func main() {
 		cfg.UpstreamClientTimeout,
 	)
 	if err != nil {
-		log.Printf("automation workload validation disabled: %v", err)
+		slog.Warn("automation workload validation disabled", "error", err)
 	}
 
 	addr := ":" + cfg.Port
-	log.Printf("sts listening on %s", addr)
+	slog.Info("server_listening", "addr", addr)
 	tokenConfig := service.TokenConfig{
 		TTL:           cfg.TokenTTL,
 		AutomationTTL: cfg.AutomationTokenTTL,
@@ -54,8 +59,11 @@ func main() {
 	if workloadValidator != nil {
 		svc = service.New(tokenConfig, changeRequests, serverInventory, workloadValidator)
 	}
-	log.Fatal(http.ListenAndServe(
+	if err := http.ListenAndServe(
 		addr,
 		httpapi.New(svc),
-	))
+	); err != nil {
+		slog.Error("server failed", "error", err)
+		os.Exit(1)
+	}
 }
