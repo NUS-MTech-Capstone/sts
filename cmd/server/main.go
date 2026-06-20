@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/change_request"
 	"github.com/NUS-MTech-Capstone/sts/internal/config"
@@ -59,10 +60,15 @@ func main() {
 	if workloadValidator != nil {
 		svc = service.New(tokenConfig, changeRequests, serverInventory, workloadValidator)
 	}
-	if err := http.ListenAndServe(
-		addr,
-		httpapi.New(svc),
-	); err != nil {
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           httpapi.New(svc),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(1)
 	}

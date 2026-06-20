@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -23,11 +24,11 @@ type Validator struct {
 }
 
 func New(apiURL, tokenFile, caFile, audience, namespace, serviceAccount string, timeout time.Duration) (*Validator, error) {
-	reviewerToken, err := os.ReadFile(tokenFile)
+	reviewerToken, err := readFileScoped(tokenFile)
 	if err != nil {
 		return nil, fmt.Errorf("read kubernetes service account token: %w", err)
 	}
-	caPEM, err := os.ReadFile(caFile)
+	caPEM, err := readFileScoped(caFile)
 	if err != nil {
 		return nil, fmt.Errorf("read kubernetes CA: %w", err)
 	}
@@ -44,6 +45,25 @@ func New(apiURL, tokenFile, caFile, audience, namespace, serviceAccount string, 
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}},
 		},
 	}, nil
+}
+
+func readFileScoped(path string) ([]byte, error) {
+	clean := filepath.Clean(path)
+	dir := filepath.Dir(clean)
+	name := filepath.Base(clean)
+	if name == "." || name == string(filepath.Separator) {
+		return nil, fmt.Errorf("invalid file path %q", path)
+	}
+	rootDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+	root, err := os.OpenRoot(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	return root.ReadFile(name)
 }
 
 func (v *Validator) Validate(ctx context.Context, token string) (string, error) {
