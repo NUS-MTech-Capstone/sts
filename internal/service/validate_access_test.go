@@ -66,3 +66,34 @@ func TestValidateAccessRejectsUnknownAction(t *testing.T) {
 		t.Fatalf("Reason = %q, want action validation error", resp.Reason)
 	}
 }
+
+func TestValidateAccessAllowsRejoinDiscoveryByHostAndCR(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID: "user-1",
+		HostID: "host-1",
+		CRID:   "cr-1",
+		Action: "rejoin",
+	})
+
+	if !resp.Allowed {
+		t.Fatalf("Allowed = false, reason = %q", resp.Reason)
+	}
+}
+
+func TestValidateAccessRejectsRejoinWithoutSessionOrDiscoveryScope(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID: "user-1",
+		Action: "rejoin",
+	})
+
+	if resp.Allowed {
+		t.Fatal("Allowed = true, want false")
+	}
+	if !strings.Contains(resp.Reason, "sessionId") {
+		t.Fatalf("Reason = %q, want sessionId validation error", resp.Reason)
+	}
+}

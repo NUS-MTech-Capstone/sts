@@ -61,6 +61,10 @@ POST /tokens/automation
 POST /tokens/automation/validate
 ```
 
+`/validate` accepts `start` requests scoped by `hostId` and `crId`, session
+operations scoped by `sessionId`, and owner rejoin discovery requests scoped by
+`hostId` and `crId`.
+
 `/tokens/validate` is used by the proxy dataplane. A successful response returns
 the verified claims. Tokens bind the session action (`start`, `rejoin`, or
 `observe`), mode, host, change request, connection type, and trusted SSH target

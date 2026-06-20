@@ -26,7 +26,10 @@ func (s *Service) ValidateAccess(ctx context.Context, req model.ValidateRequest)
 			return model.ValidateResponse{Allowed: false, Reason: err.Error()}
 		}
 	}
-	if (req.Action == "rejoin" || req.Action == "observe") && req.SessionID == "" {
+	if req.Action == "rejoin" && req.SessionID == "" && (req.HostID == "" || req.CRID == "") {
+		return model.ValidateResponse{Allowed: false, Reason: "sessionId or hostId and crId are required for rejoin"}
+	}
+	if req.Action == "observe" && req.SessionID == "" {
 		return model.ValidateResponse{Allowed: false, Reason: "sessionId is required"}
 	}
 	return model.ValidateResponse{Allowed: true}
