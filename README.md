@@ -93,3 +93,12 @@ Trusted inventory entries may include:
   }
 }
 ```
+
+## API Specification
+
+The OpenAPI contract is checked in at `api/openapi.yaml` and is served
+unauthenticated at:
+
+```http
+GET /openapi.yaml
+```
