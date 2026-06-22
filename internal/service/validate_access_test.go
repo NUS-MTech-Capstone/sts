@@ -13,11 +13,18 @@ import (
 )
 
 type changeRequestStub struct {
-	err error
+	changeRequest change_request.ChangeRequest
+	err           error
 }
 
 func (s changeRequestStub) Get(context.Context, string) (change_request.ChangeRequest, error) {
-	return change_request.ChangeRequest{}, s.err
+	if s.err != nil {
+		return change_request.ChangeRequest{}, s.err
+	}
+	if s.changeRequest.CRID == "" {
+		return change_request.ChangeRequest{CRID: "cr-1", Status: "Approved"}, nil
+	}
+	return s.changeRequest, nil
 }
 
 type serverInventoryStub struct {
@@ -48,6 +55,52 @@ func TestValidateAccessChecksConfiguredUpstreams(t *testing.T) {
 	}
 	if !strings.Contains(resp.Reason, "host not found") {
 		t.Fatalf("Reason = %q, want host lookup error", resp.Reason)
+	}
+}
+
+func TestValidateAccessRejectsUnapprovedChangeRequest(t *testing.T) {
+	svc := New(
+		TokenConfig{TTL: time.Minute},
+		changeRequestStub{changeRequest: change_request.ChangeRequest{CRID: "cr-1", Status: "Pending"}},
+		serverInventoryStub{},
+	)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID: "user-1",
+		HostID: "host-1",
+		CRID:   "cr-1",
+		Action: "start",
+	})
+
+	if resp.Allowed {
+		t.Fatal("Allowed = true, want false")
+	}
+	if !strings.Contains(resp.Reason, "not approved") {
+		t.Fatalf("Reason = %q, want not approved", resp.Reason)
+	}
+}
+
+func TestValidateAccessRejectsChangeRequestHostMismatch(t *testing.T) {
+	svc := New(
+		TokenConfig{TTL: time.Minute},
+		changeRequestStub{changeRequest: change_request.ChangeRequest{
+			CRID: "cr-1", Status: "Approved", HostIDs: []string{"host-2"},
+		}},
+		serverInventoryStub{},
+	)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID: "user-1",
+		HostID: "host-1",
+		CRID:   "cr-1",
+		Action: "start",
+	})
+
+	if resp.Allowed {
+		t.Fatal("Allowed = true, want false")
+	}
+	if !strings.Contains(resp.Reason, "does not cover host") {
+		t.Fatalf("Reason = %q, want host scope denial", resp.Reason)
 	}
 }
 

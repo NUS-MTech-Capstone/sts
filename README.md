@@ -50,6 +50,10 @@ GET /change-requests/{crId}
 GET /servers/{hostId}
 ```
 
+When `CHANGE_REQUEST_URL` is configured, `/validate` requires the upstream
+change request to be approved. If the response includes `hostIds`, the requested
+gateway host ID must be present.
+
 ## Endpoints
 
 ```http

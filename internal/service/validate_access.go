@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/model"
 )
@@ -17,8 +18,15 @@ func (s *Service) ValidateAccess(ctx context.Context, req model.ValidateRequest)
 		return model.ValidateResponse{Allowed: false, Reason: "hostId and crId are required for start"}
 	}
 	if req.Action == "start" && s.changeRequests != nil {
-		if _, err := s.changeRequests.Get(ctx, req.CRID); err != nil {
+		changeRequest, err := s.changeRequests.Get(ctx, req.CRID)
+		if err != nil {
 			return model.ValidateResponse{Allowed: false, Reason: err.Error()}
+		}
+		if !strings.EqualFold(changeRequest.Status, "approved") {
+			return model.ValidateResponse{Allowed: false, Reason: "change request is not approved"}
+		}
+		if len(changeRequest.HostIDs) > 0 && !contains(changeRequest.HostIDs, req.HostID) {
+			return model.ValidateResponse{Allowed: false, Reason: "change request does not cover host"}
 		}
 	}
 	if req.Action == "start" && s.serverInventory != nil {
@@ -33,4 +41,13 @@ func (s *Service) ValidateAccess(ctx context.Context, req model.ValidateRequest)
 		return model.ValidateResponse{Allowed: false, Reason: "sessionId is required"}
 	}
 	return model.ValidateResponse{Allowed: true}
+}
+
+func contains(values []string, value string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
 }
