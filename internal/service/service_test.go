@@ -176,6 +176,28 @@ func TestValidateSessionTokenRejectsWrongUser(t *testing.T) {
 	}
 }
 
+func TestIssueAndValidateRejoinOwnerSessionToken(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory())
+	svc.now = func() time.Time { return testNow }
+
+	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("rejoin", "owner"))
+	if err != nil {
+		t.Fatalf("IssueSessionToken() error = %v", err)
+	}
+
+	resp := svc.ValidateSessionToken(t.Context(), model.TokenValidateRequest{
+		SessionID: "sess-1",
+		UserID:    "user-1",
+		Token:     token.SessionToken,
+	})
+	if !resp.Allowed || resp.Claims == nil {
+		t.Fatalf("ValidateSessionToken() = %#v, want allowed rejoin owner claims", resp)
+	}
+	if resp.Claims.Action != "rejoin" || resp.Claims.Mode != "owner" {
+		t.Fatalf("claims action/mode = %s/%s, want rejoin/owner", resp.Claims.Action, resp.Claims.Mode)
+	}
+}
+
 func TestIssueSessionTokenRejectsInvalidActionMode(t *testing.T) {
 	svc := New(testTokenConfig(), nil, testInventory())
 	if _, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "owner")); err == nil {
