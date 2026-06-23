@@ -182,3 +182,33 @@ func TestValidateAccessRejectsObserveWithoutSession(t *testing.T) {
 		t.Fatalf("Reason = %q, want sessionId validation error", resp.Reason)
 	}
 }
+
+func TestValidateAccessRequiresSessionIdForStop(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID: "user-1",
+		Action: "stop",
+	})
+
+	if resp.Allowed {
+		t.Fatal("Allowed = true, want false")
+	}
+	if !strings.Contains(resp.Reason, "sessionId") {
+		t.Fatalf("Reason = %q, want sessionId validation error", resp.Reason)
+	}
+}
+
+func TestValidateAccessAllowsStopWithSessionId(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID:    "user-1",
+		SessionID: "sess-1",
+		Action:    "stop",
+	})
+
+	if !resp.Allowed {
+		t.Fatalf("Allowed = false, reason = %q", resp.Reason)
+	}
+}
