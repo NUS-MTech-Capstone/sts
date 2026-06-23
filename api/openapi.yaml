@@ -216,6 +216,19 @@ components:
           type: string
         userId:
           type: string
+        hostId:
+          type: string
+        crId:
+          type: string
+        connectionType:
+          type: string
+          enum: [ssh]
+        action:
+          type: string
+          enum: [start, rejoin, observe]
+        mode:
+          type: string
+          enum: [owner, observer]
         token:
           type: string
     SessionClaims:

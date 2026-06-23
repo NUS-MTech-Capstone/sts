@@ -69,10 +69,13 @@ POST /tokens/automation/validate
 operations scoped by `sessionId`, and owner rejoin discovery requests scoped by
 `hostId` and `crId`.
 
-`/tokens/validate` is used by the proxy dataplane. A successful response returns
-the verified claims. Tokens bind the session action (`start`, `rejoin`, or
-`observe`), mode, host, change request, connection type, and trusted SSH target
-metadata. Observer tokens cannot become writable owner connections.
+`/tokens/validate` is used by token-consuming services. A successful response
+returns the verified claims. Callers may provide expected `userId`, `hostId`,
+`crId`, `connectionType`, `action`, and `mode` values; STS rejects the request
+if any provided expected value does not match the signed token. Tokens bind the
+session action (`start`, `rejoin`, or `observe`), mode, host, change request,
+connection type, and trusted SSH target metadata. Observer tokens cannot become
+writable owner connections.
 
 Session tokens are RFC 7519 JWTs signed with JWS `HS256`. They include the
 registered `iss`, `sub`, `aud`, `exp`, `nbf`, `iat`, and `jti` claims plus the

@@ -33,9 +33,14 @@ type SessionTokenResponse struct {
 }
 
 type TokenValidateRequest struct {
-	SessionID string `json:"sessionId"`
-	UserID    string `json:"userId,omitempty"`
-	Token     string `json:"token"`
+	SessionID      string `json:"sessionId"`
+	UserID         string `json:"userId,omitempty"`
+	HostID         string `json:"hostId,omitempty"`
+	CRID           string `json:"crId,omitempty"`
+	ConnectionType string `json:"connectionType,omitempty"`
+	Action         string `json:"action,omitempty"`
+	Mode           string `json:"mode,omitempty"`
+	Token          string `json:"token"`
 }
 
 type SessionClaims struct {

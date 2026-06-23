@@ -143,6 +143,21 @@ func (s *Service) ValidateSessionToken(_ context.Context, req model.TokenValidat
 	if req.UserID != "" && claims.Subject != req.UserID {
 		return model.ValidateResponse{Allowed: false, Reason: "token user mismatch"}
 	}
+	if req.HostID != "" && claims.HostID != req.HostID {
+		return model.ValidateResponse{Allowed: false, Reason: "token host mismatch"}
+	}
+	if req.CRID != "" && claims.CRID != req.CRID {
+		return model.ValidateResponse{Allowed: false, Reason: "token change request mismatch"}
+	}
+	if req.ConnectionType != "" && claims.ConnectionType != req.ConnectionType {
+		return model.ValidateResponse{Allowed: false, Reason: "token connectionType mismatch"}
+	}
+	if req.Action != "" && claims.Action != req.Action {
+		return model.ValidateResponse{Allowed: false, Reason: "token action mismatch"}
+	}
+	if req.Mode != "" && claims.Mode != req.Mode {
+		return model.ValidateResponse{Allowed: false, Reason: "token mode mismatch"}
+	}
 	if claims.ConnectionType == "ssh" &&
 		(claims.Address == "" || claims.Username == "" || claims.CredentialSecretID == "" || claims.HostPublicKey == "") {
 		return model.ValidateResponse{Allowed: false, Reason: "invalid ssh target claims"}

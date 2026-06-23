@@ -176,6 +176,58 @@ func TestValidateSessionTokenRejectsWrongUser(t *testing.T) {
 	}
 }
 
+func TestValidateSessionTokenRejectsExpectedClaimMismatch(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory())
+	svc.now = func() time.Time { return testNow }
+	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "observer"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name string
+		req  model.TokenValidateRequest
+	}{
+		{
+			name: "mode",
+			req: model.TokenValidateRequest{
+				SessionID: "sess-1", UserID: "user-1", Mode: "owner", Token: token.SessionToken,
+			},
+		},
+		{
+			name: "action",
+			req: model.TokenValidateRequest{
+				SessionID: "sess-1", UserID: "user-1", Action: "start", Token: token.SessionToken,
+			},
+		},
+		{
+			name: "host",
+			req: model.TokenValidateRequest{
+				SessionID: "sess-1", UserID: "user-1", HostID: "other-host", Token: token.SessionToken,
+			},
+		},
+		{
+			name: "change request",
+			req: model.TokenValidateRequest{
+				SessionID: "sess-1", UserID: "user-1", CRID: "other-cr", Token: token.SessionToken,
+			},
+		},
+		{
+			name: "connection type",
+			req: model.TokenValidateRequest{
+				SessionID: "sess-1", UserID: "user-1", ConnectionType: "agent", Token: token.SessionToken,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if resp := svc.ValidateSessionToken(t.Context(), tt.req); resp.Allowed {
+				t.Fatalf("ValidateSessionToken() allowed mismatched %s", tt.name)
+			}
+		})
+	}
+}
+
 func TestIssueAndValidateRejoinOwnerSessionToken(t *testing.T) {
 	svc := New(testTokenConfig(), nil, testInventory())
 	svc.now = func() time.Time { return testNow }
