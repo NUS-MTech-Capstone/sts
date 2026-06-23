@@ -150,3 +150,35 @@ func TestValidateAccessRejectsRejoinWithoutSessionOrDiscoveryScope(t *testing.T)
 		t.Fatalf("Reason = %q, want sessionId validation error", resp.Reason)
 	}
 }
+
+func TestValidateAccessAllowsObserveWithSessionForAnyAuthenticatedUser(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	for _, userID := range []string{"owner-user", "observer-user"} {
+		resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+			UserID:    userID,
+			SessionID: "sess-1",
+			Action:    "observe",
+		})
+
+		if !resp.Allowed {
+			t.Fatalf("ValidateAccess(%q) allowed = false, reason = %q", userID, resp.Reason)
+		}
+	}
+}
+
+func TestValidateAccessRejectsObserveWithoutSession(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		UserID: "observer-user",
+		Action: "observe",
+	})
+
+	if resp.Allowed {
+		t.Fatal("Allowed = true, want false")
+	}
+	if !strings.Contains(resp.Reason, "sessionId") {
+		t.Fatalf("Reason = %q, want sessionId validation error", resp.Reason)
+	}
+}

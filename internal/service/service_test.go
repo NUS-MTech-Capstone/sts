@@ -198,10 +198,38 @@ func TestIssueAndValidateRejoinOwnerSessionToken(t *testing.T) {
 	}
 }
 
+func TestIssueAndValidateObserveSessionToken(t *testing.T) {
+	svc := New(testTokenConfig(), nil, testInventory())
+	svc.now = func() time.Time { return testNow }
+
+	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "observer"))
+	if err != nil {
+		t.Fatalf("IssueSessionToken() error = %v", err)
+	}
+
+	resp := svc.ValidateSessionToken(t.Context(), model.TokenValidateRequest{
+		SessionID: "sess-1",
+		UserID:    "user-1",
+		Token:     token.SessionToken,
+	})
+	if !resp.Allowed || resp.Claims == nil {
+		t.Fatalf("ValidateSessionToken() = %#v, want allowed observe observer claims", resp)
+	}
+	if resp.Claims.Action != "observe" || resp.Claims.Mode != "observer" {
+		t.Fatalf("claims action/mode = %s/%s, want observe/observer", resp.Claims.Action, resp.Claims.Mode)
+	}
+}
+
 func TestIssueSessionTokenRejectsInvalidActionMode(t *testing.T) {
 	svc := New(testTokenConfig(), nil, testInventory())
 	if _, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "owner")); err == nil {
 		t.Fatal("IssueSessionToken() accepted observe owner token")
+	}
+	if _, err := svc.IssueSessionToken(t.Context(), testTokenRequest("rejoin", "observer")); err == nil {
+		t.Fatal("IssueSessionToken() accepted rejoin observer token")
+	}
+	if _, err := svc.IssueSessionToken(t.Context(), testTokenRequest("start", "observer")); err == nil {
+		t.Fatal("IssueSessionToken() accepted start observer token")
 	}
 }
 
