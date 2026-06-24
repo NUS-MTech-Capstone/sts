@@ -285,6 +285,60 @@ func TestIssueSessionTokenRejectsInvalidActionMode(t *testing.T) {
 	}
 }
 
+func TestIssueSessionTokenRejectsMissingAndMismatchedTargetMetadata(t *testing.T) {
+	tests := []struct {
+		name      string
+		inventory ServerInventoryClient
+		req       model.SessionTokenRequest
+		wantError string
+	}{
+		{
+			name:      "missing required request fields",
+			inventory: testInventory(),
+			req:       model.SessionTokenRequest{SessionID: "sess-1", UserID: "user-1", HostID: "host-1"},
+			wantError: "sessionId, userId, hostId and crId",
+		},
+		{
+			name:      "unsupported connection type",
+			inventory: testInventory(),
+			req:       model.SessionTokenRequest{SessionID: "sess-1", UserID: "user-1", HostID: "host-1", CRID: "cr-1", ConnectionType: "agent", Action: "start", Mode: "owner"},
+			wantError: "only ssh",
+		},
+		{
+			name:      "missing inventory",
+			inventory: nil,
+			req:       testTokenRequest("start", "owner"),
+			wantError: "server inventory is required",
+		},
+		{
+			name: "host mismatch",
+			inventory: serverInventoryStub{server: server_inventory.Server{
+				HostID: "other-host", ConnectionType: "ssh", Address: "host:22", Username: "ubuntu",
+				CredentialSecretID: "secret", HostPublicKey: "ssh-ed25519 AAAA",
+			}},
+			req:       testTokenRequest("start", "owner"),
+			wantError: "hostId mismatch",
+		},
+		{
+			name: "incomplete ssh target",
+			inventory: serverInventoryStub{server: server_inventory.Server{
+				HostID: "host-1", ConnectionType: "ssh", Address: "host:22", Username: "ubuntu",
+			}},
+			req:       testTokenRequest("start", "owner"),
+			wantError: "ssh target is incomplete",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := New(testTokenConfig(), nil, tt.inventory)
+			_, err := svc.IssueSessionToken(t.Context(), tt.req)
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("IssueSessionToken() error = %v, want containing %q", err, tt.wantError)
+			}
+		})
+	}
+}
+
 func TestValidateSessionTokenRejectsExpiredOrTamperedJWT(t *testing.T) {
 	svc := New(testTokenConfig(), nil, testInventory())
 	svc.now = func() time.Time { return testNow }
