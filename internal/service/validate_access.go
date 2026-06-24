@@ -11,8 +11,8 @@ func (s *Service) ValidateAccess(ctx context.Context, req model.ValidateRequest)
 	if req.UserID == "" {
 		return model.ValidateResponse{Allowed: false, Reason: "userId is required"}
 	}
-	if req.Action != "start" && req.Action != "rejoin" && req.Action != "observe" {
-		return model.ValidateResponse{Allowed: false, Reason: "action must be start, rejoin or observe"}
+	if req.Action != "start" && req.Action != "rejoin" && req.Action != "observe" && req.Action != "stop" {
+		return model.ValidateResponse{Allowed: false, Reason: "action must be start, rejoin, observe or stop"}
 	}
 	if req.Action == "start" && (req.HostID == "" || req.CRID == "") {
 		return model.ValidateResponse{Allowed: false, Reason: "hostId and crId are required for start"}
@@ -39,6 +39,9 @@ func (s *Service) ValidateAccess(ctx context.Context, req model.ValidateRequest)
 	}
 	if req.Action == "observe" && req.SessionID == "" {
 		return model.ValidateResponse{Allowed: false, Reason: "sessionId is required"}
+	}
+	if req.Action == "stop" && req.SessionID == "" {
+		return model.ValidateResponse{Allowed: false, Reason: "sessionId is required for stop"}
 	}
 	return model.ValidateResponse{Allowed: true}
 }
