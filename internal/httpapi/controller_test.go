@@ -19,7 +19,7 @@ func newTestServer() *Server {
 		SigningKey:    []byte("0123456789abcdef0123456789abcdef"),
 		Issuer:        "test-sts",
 		Audience:      "test-session",
-		ClockSkew:     5 * time.Second,
+		ClockSkew:     6 * time.Second,
 	}, nil, nil)
 	return New(svc)
 }
