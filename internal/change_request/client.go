@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/NUS-MTech-Capstone/sts/internal/observability"
 )
 
 type Client struct {
@@ -41,6 +43,7 @@ func (c *Client) Get(ctx context.Context, crID string) (ChangeRequest, error) {
 	if err != nil {
 		return ChangeRequest{}, err
 	}
+	observability.SetRequestHeaders(ctx, req)
 
 	resp, err := c.client.Do(req)
 	if err != nil {

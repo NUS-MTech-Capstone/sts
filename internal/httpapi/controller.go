@@ -4,21 +4,45 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/model"
 	"github.com/NUS-MTech-Capstone/sts/internal/observability"
 )
 
 func (s *Server) validate(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	var req model.ValidateRequest
 	if !decode(w, r, &req) {
 		return
 	}
 	resp := s.svc.ValidateAccess(r.Context(), req)
 	if !resp.Allowed {
+		observability.EmitCount("sts", "AuthFailures", map[string]string{"Component": "access", "Reason": "denied"})
+		slog.WarnContext(r.Context(), "AccessDenied",
+			"requestId", observability.RequestID(r.Context()),
+			"userId", req.UserID,
+			"hostId", req.HostID,
+			"crId", req.CRID,
+			"sessionId", req.SessionID,
+			"action", req.Action,
+			"status", "denied",
+			"durationMs", time.Since(start).Milliseconds(),
+			"reason", resp.Reason,
+		)
 		writeJSON(w, http.StatusForbidden, resp)
 		return
 	}
+	slog.InfoContext(r.Context(), "AccessAllowed",
+		"requestId", observability.RequestID(r.Context()),
+		"userId", req.UserID,
+		"hostId", req.HostID,
+		"crId", req.CRID,
+		"sessionId", req.SessionID,
+		"action", req.Action,
+		"status", "allowed",
+		"durationMs", time.Since(start).Milliseconds(),
+	)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -29,6 +53,7 @@ func (s *Server) issueToken(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := s.svc.IssueSessionToken(r.Context(), req)
 	if err != nil {
+		observability.EmitCount("sts", "STSErrors", map[string]string{"Component": "token", "Reason": "issue_failed"})
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -51,6 +76,18 @@ func (s *Server) validateToken(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := s.svc.ValidateSessionToken(r.Context(), req)
 	if !resp.Allowed {
+		observability.EmitCount("sts", "AuthFailures", map[string]string{"Component": "token", "Reason": "denied"})
+		slog.WarnContext(r.Context(), "AccessDenied",
+			"requestId", observability.RequestID(r.Context()),
+			"sessionId", req.SessionID,
+			"userId", req.UserID,
+			"hostId", req.HostID,
+			"crId", req.CRID,
+			"action", req.Action,
+			"mode", req.Mode,
+			"status", "denied",
+			"reason", resp.Reason,
+		)
 		writeJSON(w, http.StatusForbidden, resp)
 		return
 	}
