@@ -54,6 +54,14 @@ When `CHANGE_REQUEST_URL` is configured, `/validate` requires the upstream
 change request to be approved. If the response includes `hostIds`, the requested
 gateway host ID must be present.
 
+## Design Patterns
+
+STS models access checks as policy strategies behind the `/validate` endpoint.
+Common validation runs first, then the action-specific policy for `start`,
+`rejoin`, `observe`, or `stop`. The `start` policy composes the optional
+change-request and server-inventory clients without changing the public
+request or response contract.
+
 ## Endpoints
 
 ```http
@@ -87,6 +95,12 @@ interactive session tokens. Issuance requires a projected Kubernetes
 service-account token that passes TokenReview for the configured namespace,
 service account, and audience. Capabilities bind the run, incident, host,
 phase, operation allowlist, assigned pod instance, and remediation plan hash.
+
+For Phase 2 AI-agent integrations, STS remains the authority boundary. Model
+output never grants capability by itself; callers must present workload identity
+for issuance and consumers must validate the signed run, incident, host,
+operation allowlist, assigned pod instance, and plan hash before executing any
+automation step.
 
 Trusted inventory entries may include:
 

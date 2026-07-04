@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -210,5 +211,30 @@ func TestValidateAccessAllowsStopWithSessionId(t *testing.T) {
 
 	if !resp.Allowed {
 		t.Fatalf("Allowed = false, reason = %q", resp.Reason)
+	}
+}
+
+func TestAccessPolicySelection(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+
+	tests := []struct {
+		action string
+		want   accessPolicy
+	}{
+		{action: "start", want: startAccessPolicy{}},
+		{action: "rejoin", want: rejoinAccessPolicy{}},
+		{action: "observe", want: observeAccessPolicy{}},
+		{action: "stop", want: stopAccessPolicy{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.action, func(t *testing.T) {
+			policy, ok := svc.accessPolicy(tt.action)
+			if !ok {
+				t.Fatal("accessPolicy() ok = false")
+			}
+			if fmt.Sprintf("%T", policy) != fmt.Sprintf("%T", tt.want) {
+				t.Fatalf("accessPolicy() = %T, want %T", policy, tt.want)
+			}
+		})
 	}
 }
