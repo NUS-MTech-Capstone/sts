@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NUS-MTech-Capstone/sts/internal/events"
 	"github.com/NUS-MTech-Capstone/sts/internal/model"
 	"github.com/NUS-MTech-Capstone/sts/internal/observability"
 )
@@ -30,6 +31,17 @@ func (s *Server) validate(w http.ResponseWriter, r *http.Request) {
 			"durationMs", time.Since(start).Milliseconds(),
 			"reason", resp.Reason,
 		)
+		s.events.Emit(r.Context(), events.Event{
+			EventType:  "AccessDenied",
+			RequestID:  observability.RequestID(r.Context()),
+			UserID:     req.UserID,
+			HostID:     req.HostID,
+			CRID:       req.CRID,
+			SessionID:  req.SessionID,
+			Action:     req.Action,
+			Outcome:    "denied",
+			ReasonCode: "denied",
+		})
 		writeJSON(w, http.StatusForbidden, resp)
 		return
 	}
@@ -43,6 +55,16 @@ func (s *Server) validate(w http.ResponseWriter, r *http.Request) {
 		"status", "allowed",
 		"durationMs", time.Since(start).Milliseconds(),
 	)
+	s.events.Emit(r.Context(), events.Event{
+		EventType: "AccessAllowed",
+		RequestID: observability.RequestID(r.Context()),
+		UserID:    req.UserID,
+		HostID:    req.HostID,
+		CRID:      req.CRID,
+		SessionID: req.SessionID,
+		Action:    req.Action,
+		Outcome:   "allowed",
+	})
 	writeJSON(w, http.StatusOK, resp)
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/NUS-MTech-Capstone/sts/internal/change_request"
 	"github.com/NUS-MTech-Capstone/sts/internal/config"
+	"github.com/NUS-MTech-Capstone/sts/internal/events"
 	"github.com/NUS-MTech-Capstone/sts/internal/httpapi"
 	"github.com/NUS-MTech-Capstone/sts/internal/observability"
 	"github.com/NUS-MTech-Capstone/sts/internal/server_inventory"
@@ -16,6 +18,7 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	observability.ConfigureLogger("sts")
 	cfg := config.Load()
 	if err := cfg.Validate(); err != nil {
@@ -60,9 +63,14 @@ func main() {
 	if workloadValidator != nil {
 		svc = service.New(tokenConfig, changeRequests, serverInventory, workloadValidator)
 	}
+	eventPublisher, err := events.NewPublisher(ctx, cfg.EventPublisher, cfg.AWSRegion, cfg.EventsTopicARN)
+	if err != nil {
+		slog.Error("metadata event publisher setup failed", "error", err)
+		os.Exit(1)
+	}
 	server := &http.Server{
 		Addr:              addr,
-		Handler:           httpapi.New(svc),
+		Handler:           httpapi.New(svc, eventPublisher),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

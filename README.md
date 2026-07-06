@@ -42,6 +42,20 @@ JWT_AUDIENCE=dendenmushi-session
 JWT_CLOCK_SKEW_SECONDS=5
 ```
 
+Optional lifecycle event publication:
+
+```bash
+EVENT_PUBLISHER_ENABLED=false
+EVENTS_TOPIC_ARN=
+AWS_REGION=ap-southeast-1
+```
+
+When enabled, `/validate` publishes sanitized `AccessAllowed` and
+`AccessDenied` metadata events to SNS. Events never include session tokens,
+automation capability tokens, secrets, command bodies, prompts, or terminal
+streams. Publish failures are logged and do not change the authorization
+response.
+
 The upstream URLs are optional while those services are not part of this
 workspace. When configured, start validation performs these placeholder calls:
 

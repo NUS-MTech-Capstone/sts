@@ -27,6 +27,9 @@ type Config struct {
 	AutomationNamespace       string
 	AutomationServiceAccount  string
 	AutomationServiceAccounts []string
+	AWSRegion                 string
+	EventPublisher            bool
+	EventsTopicARN            string
 }
 
 func Load() Config {
@@ -49,6 +52,9 @@ func Load() Config {
 		AutomationNamespace:       env("AUTOMATION_WORKLOAD_NAMESPACE", "dendenmushi"),
 		AutomationServiceAccount:  env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent"),
 		AutomationServiceAccounts: splitEnv("AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS", env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent")),
+		AWSRegion:                 env("AWS_REGION", "ap-southeast-1"),
+		EventPublisher:            boolEnv("EVENT_PUBLISHER_ENABLED", false),
+		EventsTopicARN:            os.Getenv("EVENTS_TOPIC_ARN"),
 	}
 }
 
@@ -99,4 +105,16 @@ func splitEnv(key, fallback string) []string {
 		}
 	}
 	return values
+}
+
+func boolEnv(key string, fallback bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
