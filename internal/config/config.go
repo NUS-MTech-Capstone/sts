@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type Config struct {
 	AutomationAudience        string
 	AutomationNamespace       string
 	AutomationServiceAccount  string
+	AutomationServiceAccounts []string
 }
 
 func Load() Config {
@@ -46,6 +48,7 @@ func Load() Config {
 		AutomationAudience:        env("AUTOMATION_WORKLOAD_AUDIENCE", "dendenmushi-incident-agent"),
 		AutomationNamespace:       env("AUTOMATION_WORKLOAD_NAMESPACE", "dendenmushi"),
 		AutomationServiceAccount:  env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent"),
+		AutomationServiceAccounts: splitEnv("AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS", env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent")),
 	}
 }
 
@@ -84,4 +87,16 @@ func secondsEnv(key string, fallback int) time.Duration {
 		value = fallback
 	}
 	return time.Duration(value) * time.Second
+}
+
+func splitEnv(key, fallback string) []string {
+	value := env(key, fallback)
+	var values []string
+	for _, part := range strings.Split(value, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			values = append(values, part)
+		}
+	}
+	return values
 }

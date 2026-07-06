@@ -13,6 +13,7 @@ func TestLoadAppliesDefaultsAndFallbacksForInvalidDurations(t *testing.T) {
 	t.Setenv("AUTOMATION_TOKEN_TTL_SECONDS", "900")
 	t.Setenv("JWT_CLOCK_SKEW_SECONDS", "-1")
 	t.Setenv("UPSTREAM_CLIENT_TIMEOUT_SECONDS", "bad")
+	t.Setenv("AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS", "incident-agent,agent-controlplane")
 	t.Setenv("JWT_ISSUER", "")
 	t.Setenv("JWT_AUDIENCE", "")
 
@@ -23,6 +24,9 @@ func TestLoadAppliesDefaultsAndFallbacksForInvalidDurations(t *testing.T) {
 	if cfg.TokenTTL != 300*time.Second || cfg.AutomationTokenTTL != 900*time.Second ||
 		cfg.JWTClockSkew != -time.Second || cfg.UpstreamClientTimeout != 5*time.Second {
 		t.Fatalf("durations = token %s automation %s skew %s upstream %s", cfg.TokenTTL, cfg.AutomationTokenTTL, cfg.JWTClockSkew, cfg.UpstreamClientTimeout)
+	}
+	if strings.Join(cfg.AutomationServiceAccounts, ",") != "incident-agent,agent-controlplane" {
+		t.Fatalf("automation service accounts = %#v", cfg.AutomationServiceAccounts)
 	}
 }
 

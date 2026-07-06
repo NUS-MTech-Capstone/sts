@@ -19,11 +19,11 @@ type Validator struct {
 	apiURL        string
 	reviewerToken string
 	audience      string
-	expectedUser  string
+	expectedUsers map[string]struct{}
 	client        *http.Client
 }
 
-func New(apiURL, tokenFile, caFile, audience, namespace, serviceAccount string, timeout time.Duration) (*Validator, error) {
+func New(apiURL, tokenFile, caFile, audience, namespace string, serviceAccounts []string, timeout time.Duration) (*Validator, error) {
 	reviewerToken, err := readFileScoped(tokenFile)
 	if err != nil {
 		return nil, fmt.Errorf("read kubernetes service account token: %w", err)
@@ -36,10 +36,17 @@ func New(apiURL, tokenFile, caFile, audience, namespace, serviceAccount string, 
 	if !roots.AppendCertsFromPEM(caPEM) {
 		return nil, errors.New("parse kubernetes CA")
 	}
+	expectedUsers := make(map[string]struct{}, len(serviceAccounts))
+	for _, serviceAccount := range serviceAccounts {
+		serviceAccount = strings.TrimSpace(serviceAccount)
+		if serviceAccount != "" {
+			expectedUsers[fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccount)] = struct{}{}
+		}
+	}
 	return &Validator{
 		apiURL: strings.TrimRight(apiURL, "/"), reviewerToken: strings.TrimSpace(string(reviewerToken)),
-		audience:     audience,
-		expectedUser: fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccount),
+		audience:      audience,
+		expectedUsers: expectedUsers,
 		client: &http.Client{
 			Timeout:   timeout,
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}},
@@ -106,7 +113,7 @@ func (v *Validator) Validate(ctx context.Context, token string) (string, error) 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
-	if !result.Status.Authenticated || result.Status.User.Username != v.expectedUser {
+	if _, ok := v.expectedUsers[result.Status.User.Username]; !result.Status.Authenticated || !ok {
 		return "", errors.New("unexpected workload identity")
 	}
 	foundAudience := false

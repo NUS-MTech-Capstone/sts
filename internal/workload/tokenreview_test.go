@@ -30,14 +30,40 @@ func TestValidateAcceptsExpectedServiceAccountAndAudience(t *testing.T) {
 	}
 	validator := &Validator{
 		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
-		expectedUser: "system:serviceaccount:dendenmushi:incident-agent",
-		client:       client,
+		expectedUsers: map[string]struct{}{
+			"system:serviceaccount:dendenmushi:incident-agent":     {},
+			"system:serviceaccount:dendenmushi:agent-controlplane": {},
+		},
+		client: client,
 	}
 	subject, err := validator.Validate(t.Context(), "projected-token")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if subject != validator.expectedUser {
+	if subject != "system:serviceaccount:dendenmushi:incident-agent" {
+		t.Fatalf("subject = %q", subject)
+	}
+}
+
+func TestValidateAcceptsAgentControlplaneServiceAccount(t *testing.T) {
+	validator := &Validator{
+		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
+		expectedUsers: map[string]struct{}{
+			"system:serviceaccount:dendenmushi:incident-agent":     {},
+			"system:serviceaccount:dendenmushi:agent-controlplane": {},
+		},
+		client: &http.Client{
+			Timeout: time.Second,
+			Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return jsonResponse(`{"status":{"authenticated":true,"audiences":["incident-audience"],"user":{"username":"system:serviceaccount:dendenmushi:agent-controlplane"}}}`), nil
+			}),
+		},
+	}
+	subject, err := validator.Validate(t.Context(), "projected-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if subject != "system:serviceaccount:dendenmushi:agent-controlplane" {
 		t.Fatalf("subject = %q", subject)
 	}
 }
@@ -45,7 +71,7 @@ func TestValidateAcceptsExpectedServiceAccountAndAudience(t *testing.T) {
 func TestValidateRejectsWrongAudience(t *testing.T) {
 	validator := &Validator{
 		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
-		expectedUser: "system:serviceaccount:dendenmushi:incident-agent",
+		expectedUsers: map[string]struct{}{"system:serviceaccount:dendenmushi:incident-agent": {}},
 		client: &http.Client{
 			Timeout: time.Second,
 			Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -69,12 +95,12 @@ func TestNewReadsTokenAndCAFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	validator, err := New("https://kubernetes.test/", tokenFile, caFile, "aud", "ns", "sa", time.Second)
+	validator, err := New("https://kubernetes.test/", tokenFile, caFile, "aud", "ns", []string{"sa", "agent-controlplane"}, time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if validator.apiURL != "https://kubernetes.test" || validator.reviewerToken != "reviewer" ||
-		validator.expectedUser != "system:serviceaccount:ns:sa" {
+		len(validator.expectedUsers) != 2 {
 		t.Fatalf("validator = %#v", validator)
 	}
 }
@@ -89,10 +115,10 @@ func TestNewRejectsUnreadableOrInvalidFiles(t *testing.T) {
 	if err := os.WriteFile(caFile, []byte("not a ca"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := New("https://kubernetes.test", filepath.Join(dir, "missing"), caFile, "aud", "ns", "sa", time.Second); err == nil {
+	if _, err := New("https://kubernetes.test", filepath.Join(dir, "missing"), caFile, "aud", "ns", []string{"sa"}, time.Second); err == nil {
 		t.Fatal("New() accepted missing token file")
 	}
-	if _, err := New("https://kubernetes.test", tokenFile, caFile, "aud", "ns", "sa", time.Second); err == nil {
+	if _, err := New("https://kubernetes.test", tokenFile, caFile, "aud", "ns", []string{"sa"}, time.Second); err == nil {
 		t.Fatal("New() accepted invalid CA")
 	}
 }
@@ -100,7 +126,7 @@ func TestNewRejectsUnreadableOrInvalidFiles(t *testing.T) {
 func TestValidateRejectsEmptyTokenStatusAndTransportFailures(t *testing.T) {
 	validator := &Validator{
 		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
-		expectedUser: "system:serviceaccount:dendenmushi:incident-agent",
+		expectedUsers: map[string]struct{}{"system:serviceaccount:dendenmushi:incident-agent": {}},
 		client: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 			return nil, errors.New("network down")
 		})},

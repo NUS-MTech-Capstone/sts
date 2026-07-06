@@ -93,8 +93,11 @@ requires the configured issuer, audience, expiration, and issued-at values.
 Automation capability tokens are a separate JWT type and cannot be used as
 interactive session tokens. Issuance requires a projected Kubernetes
 service-account token that passes TokenReview for the configured namespace,
-service account, and audience. Capabilities bind the run, incident, host,
-phase, operation allowlist, assigned pod instance, and remediation plan hash.
+service account, and audience. `AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS` may list
+multiple comma-separated service accounts during rollout, for example
+`incident-agent,agent-controlplane`; after migration it should be narrowed to
+the runtime issuer. Capabilities bind the run, incident, host, phase, operation
+allowlist, assigned pod instance, and remediation plan hash.
 
 For Phase 2 AI-agent integrations, STS remains the authority boundary. Model
 output never grants capability by itself; callers must present workload identity

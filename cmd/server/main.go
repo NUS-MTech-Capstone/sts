@@ -39,7 +39,7 @@ func main() {
 	}
 	workloadValidator, err := workload.New(
 		cfg.KubernetesAPIURL, cfg.KubernetesTokenFile, cfg.KubernetesCAFile,
-		cfg.AutomationAudience, cfg.AutomationNamespace, cfg.AutomationServiceAccount,
+		cfg.AutomationAudience, cfg.AutomationNamespace, cfg.AutomationServiceAccounts,
 		cfg.UpstreamClientTimeout,
 	)
 	if err != nil {
