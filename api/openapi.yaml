@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: DenDenMushi STS API
   version: 0.1.0
-  description: Authorization and short-lived capability token API for SSH sessions and automation runs.
+  description: Authorization and short-lived capability token API for SSH sessions and automation runs. Business endpoints require the `x-api-version: 1` header; probe and OpenAPI endpoints are exempt.
 servers:
   - url: http://localhost:8080
 paths:

@@ -64,6 +64,7 @@ func TestTokenEndpointsReturnExpectedStatusCodes(t *testing.T) {
 	automationReq := httptest.NewRequest(http.MethodPost, "/tokens/automation", strings.NewReader(`{"runId":"run-1","incidentId":"inc-1","hostId":"host-1","phase":"diagnose","allowedOperations":["health_check"],"ownerPodId":"pod-1","ownerInstanceId":"instance-1"}`))
 	automationReq.Header.Set("Content-Type", "application/json")
 	automationReq.Header.Set("Authorization", "Bearer workload")
+	automationReq.Header.Set(apiVersionHeader, supportedAPIVersion)
 	automationRec := httptest.NewRecorder()
 	server.ServeHTTP(automationRec, automationReq)
 	if automationRec.Code != http.StatusForbidden {
@@ -88,6 +89,7 @@ func doJSON(t *testing.T, server *Server, method, path, body string, wantStatus 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(apiVersionHeader, supportedAPIVersion)
 	server.ServeHTTP(rec, req)
 	if rec.Code != wantStatus {
 		t.Fatalf("%s %s status = %d, want %d body=%s", method, path, rec.Code, wantStatus, rec.Body.String())
