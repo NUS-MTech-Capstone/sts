@@ -128,10 +128,17 @@ Trusted inventory entries may include:
 ```json
 {
   "automation": {
+    "catalogVersion": "v1",
     "serviceName": "myapp",
     "healthUrl": "http://127.0.0.1:8080/healthz",
     "helperPath": "/usr/local/sbin/ddm-ops",
-    "allowedOperations": ["service_status", "health_check", "restart_service"]
+    "allowedOperations": [
+      "service_status",
+      "health_check",
+      "restart_service",
+      "recover_demo_app",
+      "reload_service"
+    ]
   }
 }
 ```

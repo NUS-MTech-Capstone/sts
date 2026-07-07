@@ -29,9 +29,11 @@ func testInventory() ServerInventoryClient {
 		ConnectionType: "ssh", CredentialSecretID: "secret/host-1",
 		HostPublicKey: "ssh-ed25519 AAAATEST",
 		Automation: server_inventory.AutomationProfile{
-			ServiceName: "myapp", HealthURL: "http://127.0.0.1:8080/healthz",
+			CatalogVersion:    "v1",
+			ServiceName:       "myapp",
+			HealthURL:         "http://127.0.0.1:8080/healthz",
 			HelperPath:        "/usr/local/sbin/ddm-ops",
-			AllowedOperations: []string{"service_status", "health_check", "restart_service"},
+			AllowedOperations: []string{"service_status", "health_check", "restart_service", "recover_demo_app", "reload_service"},
 		},
 	}}
 }
@@ -66,7 +68,7 @@ func TestIssueAndValidateAutomationToken(t *testing.T) {
 	if !resp.Allowed || resp.Claims == nil {
 		t.Fatalf("validation = %#v", resp)
 	}
-	if resp.Claims.PlanHash != "plan-hash" || resp.Claims.HelperPath != "/usr/local/sbin/ddm-ops" {
+	if resp.Claims.PlanHash != "plan-hash" || resp.Claims.HelperPath != "/usr/local/sbin/ddm-ops" || resp.Claims.CatalogVersion != "v1" {
 		t.Fatalf("claims = %#v", resp.Claims)
 	}
 	sessionResp := svc.ValidateSessionToken(t.Context(), model.TokenValidateRequest{

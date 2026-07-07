@@ -30,6 +30,7 @@ type Server struct {
 }
 
 type AutomationProfile struct {
+	CatalogVersion    string   `json:"catalogVersion,omitempty"`
 	ServiceName       string   `json:"serviceName,omitempty"`
 	HealthURL         string   `json:"healthUrl,omitempty"`
 	HelperPath        string   `json:"helperPath,omitempty"`

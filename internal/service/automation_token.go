@@ -16,6 +16,7 @@ type automationClaims struct {
 	RunID              string   `json:"runId"`
 	IncidentID         string   `json:"incidentId"`
 	HostID             string   `json:"hostId"`
+	CatalogVersion     string   `json:"catalogVersion,omitempty"`
 	Phase              string   `json:"phase"`
 	AllowedOperations  []string `json:"allowedOperations"`
 	PlanHash           string   `json:"planHash,omitempty"`
@@ -64,6 +65,10 @@ func (s *Service) IssueAutomationToken(ctx context.Context, workloadToken string
 	if server.Automation.ServiceName == "" || server.Automation.HelperPath == "" || len(server.Automation.AllowedOperations) == 0 {
 		return model.AutomationTokenResponse{}, errors.New("server inventory automation profile is incomplete")
 	}
+	catalogVersion := strings.TrimSpace(server.Automation.CatalogVersion)
+	if catalogVersion == "" {
+		catalogVersion = "v1"
+	}
 	allowed := make([]string, 0, len(req.AllowedOperations))
 	seen := make(map[string]struct{}, len(req.AllowedOperations))
 	for _, operation := range req.AllowedOperations {
@@ -89,7 +94,7 @@ func (s *Service) IssueAutomationToken(ctx context.Context, workloadToken string
 	expiresAt := issuedAt.Add(ttl)
 	claims := automationClaims{
 		TokenUse: "automation", RunID: req.RunID, IncidentID: req.IncidentID, HostID: req.HostID,
-		Phase: req.Phase, AllowedOperations: allowed, PlanHash: req.PlanHash,
+		CatalogVersion: catalogVersion, Phase: req.Phase, AllowedOperations: allowed, PlanHash: req.PlanHash,
 		OwnerPodID: req.OwnerPodID, OwnerInstanceID: req.OwnerInstanceID,
 		Address: server.Address, Username: server.Username,
 		CredentialSecretID: server.CredentialSecretID, HostPublicKey: server.HostPublicKey,
@@ -134,9 +139,14 @@ func (s *Service) ValidateAutomationToken(_ context.Context, req model.Automatio
 	if subtle.ConstantTimeCompare([]byte(claims.RunID), []byte(req.RunID)) != 1 {
 		return model.AutomationValidateResponse{Allowed: false, Reason: "token run mismatch"}
 	}
+	catalogVersion := claims.CatalogVersion
+	if catalogVersion == "" {
+		catalogVersion = "v1"
+	}
 	return model.AutomationValidateResponse{Allowed: true, Claims: &model.AutomationClaims{
 		RunID: claims.RunID, IncidentID: claims.IncidentID, HostID: claims.HostID,
-		Phase: claims.Phase, AllowedOperations: claims.AllowedOperations, PlanHash: claims.PlanHash,
+		CatalogVersion: catalogVersion,
+		Phase:          claims.Phase, AllowedOperations: claims.AllowedOperations, PlanHash: claims.PlanHash,
 		OwnerPodID: claims.OwnerPodID, OwnerInstanceID: claims.OwnerInstanceID,
 		Address: claims.Address, Username: claims.Username,
 		CredentialSecretID: claims.CredentialSecretID, HostPublicKey: claims.HostPublicKey,
