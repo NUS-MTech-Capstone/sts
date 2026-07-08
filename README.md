@@ -90,6 +90,8 @@ POST /tokens/automation/validate
 Business endpoints require `x-api-version: 1`. `GET /healthz` and
 `GET /openapi.yaml` are exempt so probes and spec reads do not need custom
 headers.
+Successful probe request logs are suppressed; failed probe responses still emit
+request logs.
 
 `/validate` accepts `start` requests scoped by `hostId` and `crId`, session
 operations scoped by `sessionId`, and owner rejoin discovery requests scoped by
