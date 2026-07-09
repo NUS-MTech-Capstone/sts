@@ -83,3 +83,18 @@ func TestEnvUsesFallbackForEmptyValue(t *testing.T) {
 		t.Fatalf("env() = %q, want value", value)
 	}
 }
+
+func TestBoolEnvParsesValuesAndFallbacks(t *testing.T) {
+	t.Setenv("DDM_BOOL_TEST", "")
+	if got := boolEnv("DDM_BOOL_TEST", true); !got {
+		t.Fatal("boolEnv(empty) did not use true fallback")
+	}
+	t.Setenv("DDM_BOOL_TEST", "false")
+	if got := boolEnv("DDM_BOOL_TEST", true); got {
+		t.Fatal("boolEnv(false) = true")
+	}
+	t.Setenv("DDM_BOOL_TEST", "not-a-bool")
+	if got := boolEnv("DDM_BOOL_TEST", true); !got {
+		t.Fatal("boolEnv(invalid) did not use true fallback")
+	}
+}
