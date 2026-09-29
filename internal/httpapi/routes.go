@@ -16,4 +16,5 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /tokens/validate", s.validateToken)
 	s.mux.HandleFunc("POST /tokens/automation", s.issueAutomationToken)
 	s.mux.HandleFunc("POST /tokens/automation/validate", s.validateAutomationToken)
+	s.mux.HandleFunc("POST /workloads/validate", s.validateWorkloadIdentity)
 }

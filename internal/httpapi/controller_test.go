@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -82,6 +84,56 @@ func TestBearerToken(t *testing.T) {
 	if got := bearerToken("Basic token-1"); got != "" {
 		t.Fatalf("bearerToken() = %q, want empty", got)
 	}
+}
+
+func TestWorkloadValidationReturnsOnlyNormalizedIdentity(t *testing.T) {
+	tokenConfig := service.TokenConfig{
+		TTL: time.Minute, AutomationTTL: time.Minute,
+		SigningKey: []byte("0123456789abcdef0123456789abcdef"),
+		Issuer:     "test-sts", Audience: "test-session",
+	}
+	svc := service.New(tokenConfig, nil, nil, nil, fakeWorkloadValidator{
+		subject: "system:serviceaccount:dendenmushi-agentic:incident-agent",
+	})
+	server := New(svc)
+	req := httptest.NewRequest(http.MethodPost, "/workloads/validate", nil)
+	req.Header.Set("Authorization", "Bearer projected-token")
+	req.Header.Set(apiVersionHeader, supportedAPIVersion)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var identity map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &identity); err != nil {
+		t.Fatal(err)
+	}
+	if len(identity) != 3 || identity["namespace"] != "dendenmushi-agentic" ||
+		identity["serviceAccount"] != "incident-agent" {
+		t.Fatalf("identity = %#v", identity)
+	}
+	if _, exists := identity["token"]; exists {
+		t.Fatalf("identity response exposed token data: %#v", identity)
+	}
+
+	denied := New(service.New(tokenConfig, nil, nil, nil, fakeWorkloadValidator{err: errors.New("denied")}))
+	req = httptest.NewRequest(http.MethodPost, "/workloads/validate", nil)
+	req.Header.Set("Authorization", "Bearer rejected-token")
+	req.Header.Set(apiVersionHeader, supportedAPIVersion)
+	rec = httptest.NewRecorder()
+	denied.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden || strings.Contains(rec.Body.String(), "rejected-token") {
+		t.Fatalf("denied status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+type fakeWorkloadValidator struct {
+	subject string
+	err     error
+}
+
+func (v fakeWorkloadValidator) Validate(context.Context, string) (string, error) {
+	return v.subject, v.err
 }
 
 func doJSON(t *testing.T, server *Server, method, path, body string, wantStatus int) *httptest.ResponseRecorder {

@@ -103,3 +103,9 @@ type AutomationValidateResponse struct {
 	Reason  string            `json:"reason,omitempty"`
 	Claims  *AutomationClaims `json:"claims,omitempty"`
 }
+
+type WorkloadIdentityResponse struct {
+	Subject        string `json:"subject"`
+	Namespace      string `json:"namespace"`
+	ServiceAccount string `json:"serviceAccount"`
+}

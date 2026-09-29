@@ -48,6 +48,14 @@ func main() {
 	if err != nil {
 		slog.Warn("automation workload validation disabled", "error", err)
 	}
+	identityValidator, identityErr := workload.New(
+		cfg.KubernetesAPIURL, cfg.KubernetesTokenFile, cfg.KubernetesCAFile,
+		cfg.AutomationAudience, cfg.AutomationNamespace, cfg.WorkloadIdentityAccounts,
+		cfg.UpstreamClientTimeout,
+	)
+	if identityErr != nil {
+		slog.Warn("workload identity validation disabled", "error", identityErr)
+	}
 
 	addr := ":" + cfg.Port
 	slog.Info("server_listening", "addr", addr)
@@ -59,10 +67,14 @@ func main() {
 		Audience:      cfg.JWTAudience,
 		ClockSkew:     cfg.JWTClockSkew,
 	}
-	svc := service.New(tokenConfig, changeRequests, serverInventory)
+	validators := []service.WorkloadValidator{nil, nil}
 	if workloadValidator != nil {
-		svc = service.New(tokenConfig, changeRequests, serverInventory, workloadValidator)
+		validators[0] = workloadValidator
 	}
+	if identityValidator != nil {
+		validators[1] = identityValidator
+	}
+	svc := service.New(tokenConfig, changeRequests, serverInventory, validators...)
 	eventPublisher, err := events.NewPublisher(ctx, cfg.EventPublisher, cfg.AWSRegion, cfg.EventsTopicARN)
 	if err != nil {
 		slog.Error("metadata event publisher setup failed", "error", err)

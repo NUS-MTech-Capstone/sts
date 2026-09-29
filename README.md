@@ -37,6 +37,10 @@ Optional token settings:
 ```bash
 SESSION_TOKEN_TTL_SECONDS=300
 AUTOMATION_TOKEN_TTL_SECONDS=600
+AUTOMATION_WORKLOAD_AUDIENCE=dendenmushi-incident-agent
+AUTOMATION_WORKLOAD_NAMESPACE=dendenmushi-agentic
+AUTOMATION_TOKEN_SERVICE_ACCOUNTS=agent-tool-gateway
+WORKLOAD_IDENTITY_SERVICE_ACCOUNTS=incident-agent,agent-controlplane
 JWT_ISSUER=dendenmushi-sts
 JWT_AUDIENCE=dendenmushi-session
 JWT_CLOCK_SKEW_SECONDS=5
@@ -85,6 +89,7 @@ POST /tokens/session
 POST /tokens/validate
 POST /tokens/automation
 POST /tokens/automation/validate
+POST /workloads/validate
 ```
 
 Business endpoints require `x-api-version: 1`. `GET /healthz` and
@@ -113,11 +118,17 @@ requires the configured issuer, audience, expiration, and issued-at values.
 Automation capability tokens are a separate JWT type and cannot be used as
 interactive session tokens. Issuance requires a projected Kubernetes
 service-account token that passes TokenReview for the configured namespace,
-service account, and audience. `AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS` may list
-multiple comma-separated service accounts during rollout, for example
-`incident-agent,agent-controlplane`; after migration it should be narrowed to
-the runtime issuer. Capabilities bind the run, incident, host, phase, operation
-allowlist, assigned pod instance, and remediation plan hash.
+audience, and `AUTOMATION_TOKEN_SERVICE_ACCOUNTS`; production narrows this to
+`agent-tool-gateway`. Capabilities bind the run, incident, host, phase,
+operation allowlist, assigned pod instance, and remediation plan hash.
+
+`POST /workloads/validate` validates projected tokens against
+`WORKLOAD_IDENTITY_SERVICE_ACCOUNTS` and returns only normalized `subject`,
+`namespace`, and `serviceAccount` fields. A2A and MCP services use this endpoint
+for authentication. It never returns or logs the submitted token. The existing
+audience is intentionally retained so identity and capability callers can use
+the same projected-token configuration while their service-account allowlists
+remain separate.
 
 For Phase 2 AI-agent integrations, STS remains the authority boundary. Model
 output never grants capability by itself; callers must present workload identity

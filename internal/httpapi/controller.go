@@ -149,6 +149,23 @@ func (s *Server) validateAutomationToken(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) validateWorkloadIdentity(w http.ResponseWriter, r *http.Request) {
+	subject, err := s.svc.ValidateWorkloadIdentity(r.Context(), bearerToken(r.Header.Get("Authorization")))
+	if err != nil {
+		writeError(w, http.StatusForbidden, err.Error())
+		return
+	}
+	const prefix = "system:serviceaccount:"
+	parts := strings.Split(strings.TrimPrefix(subject, prefix), ":")
+	if !strings.HasPrefix(subject, prefix) || len(parts) != 2 {
+		writeError(w, http.StatusForbidden, "workload identity is not authorized")
+		return
+	}
+	writeJSON(w, http.StatusOK, model.WorkloadIdentityResponse{
+		Subject: subject, Namespace: parts[0], ServiceAccount: parts[1],
+	})
+}
+
 func bearerToken(header string) string {
 	const prefix = "Bearer "
 	if !strings.HasPrefix(header, prefix) {

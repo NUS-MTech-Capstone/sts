@@ -14,6 +14,8 @@ func TestLoadAppliesDefaultsAndFallbacksForInvalidDurations(t *testing.T) {
 	t.Setenv("JWT_CLOCK_SKEW_SECONDS", "-1")
 	t.Setenv("UPSTREAM_CLIENT_TIMEOUT_SECONDS", "bad")
 	t.Setenv("AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS", "incident-agent,agent-controlplane")
+	t.Setenv("AUTOMATION_TOKEN_SERVICE_ACCOUNTS", "agent-tool-gateway")
+	t.Setenv("WORKLOAD_IDENTITY_SERVICE_ACCOUNTS", "incident-agent,agent-controlplane")
 	t.Setenv("JWT_ISSUER", "")
 	t.Setenv("JWT_AUDIENCE", "")
 
@@ -25,8 +27,11 @@ func TestLoadAppliesDefaultsAndFallbacksForInvalidDurations(t *testing.T) {
 		cfg.JWTClockSkew != -time.Second || cfg.UpstreamClientTimeout != 5*time.Second {
 		t.Fatalf("durations = token %s automation %s skew %s upstream %s", cfg.TokenTTL, cfg.AutomationTokenTTL, cfg.JWTClockSkew, cfg.UpstreamClientTimeout)
 	}
-	if strings.Join(cfg.AutomationServiceAccounts, ",") != "incident-agent,agent-controlplane" {
+	if strings.Join(cfg.AutomationServiceAccounts, ",") != "agent-tool-gateway" {
 		t.Fatalf("automation service accounts = %#v", cfg.AutomationServiceAccounts)
+	}
+	if strings.Join(cfg.WorkloadIdentityAccounts, ",") != "incident-agent,agent-controlplane" {
+		t.Fatalf("workload identity accounts = %#v", cfg.WorkloadIdentityAccounts)
 	}
 }
 

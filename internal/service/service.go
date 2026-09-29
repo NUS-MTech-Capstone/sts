@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/change_request"
@@ -35,6 +36,7 @@ type Service struct {
 	changeRequests  ChangeRequestClient
 	serverInventory ServerInventoryClient
 	workloads       WorkloadValidator
+	identities      WorkloadValidator
 }
 
 func New(
@@ -53,5 +55,19 @@ func New(
 	if len(workloads) > 0 {
 		svc.workloads = workloads[0]
 	}
+	if len(workloads) > 1 {
+		svc.identities = workloads[1]
+	}
 	return svc
+}
+
+func (s *Service) ValidateWorkloadIdentity(ctx context.Context, token string) (string, error) {
+	if s.identities == nil {
+		return "", errors.New("workload identity validation is not configured")
+	}
+	subject, err := s.identities.Validate(ctx, token)
+	if err != nil {
+		return "", errors.New("workload identity is not authorized")
+	}
+	return subject, nil
 }

@@ -120,6 +120,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AutomationValidateResponse"
+  /workloads/validate:
+    post:
+      summary: Validate and normalize an allowed Kubernetes workload identity
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Projected service-account token is valid and allowed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkloadIdentityResponse"
+        "403":
+          $ref: "#/components/responses/Error"
 components:
   securitySchemes:
     bearerAuth:
@@ -140,6 +154,20 @@ components:
         status:
           type: string
           example: ok
+    WorkloadIdentityResponse:
+      type: object
+      additionalProperties: false
+      required: [subject, namespace, serviceAccount]
+      properties:
+        subject:
+          type: string
+          example: system:serviceaccount:dendenmushi-agentic:incident-agent
+        namespace:
+          type: string
+          example: dendenmushi-agentic
+        serviceAccount:
+          type: string
+          example: incident-agent
     ErrorResponse:
       type: object
       required: [error]

@@ -27,6 +27,7 @@ type Config struct {
 	AutomationNamespace       string
 	AutomationServiceAccount  string
 	AutomationServiceAccounts []string
+	WorkloadIdentityAccounts  []string
 	AWSRegion                 string
 	EventPublisher            bool
 	EventsTopicARN            string
@@ -51,7 +52,8 @@ func Load() Config {
 		AutomationAudience:        env("AUTOMATION_WORKLOAD_AUDIENCE", "dendenmushi-incident-agent"),
 		AutomationNamespace:       env("AUTOMATION_WORKLOAD_NAMESPACE", "dendenmushi"),
 		AutomationServiceAccount:  env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent"),
-		AutomationServiceAccounts: splitEnv("AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS", env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent")),
+		AutomationServiceAccounts: splitEnv("AUTOMATION_TOKEN_SERVICE_ACCOUNTS", env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNTS", env("AUTOMATION_WORKLOAD_SERVICE_ACCOUNT", "incident-agent"))),
+		WorkloadIdentityAccounts:  splitEnv("WORKLOAD_IDENTITY_SERVICE_ACCOUNTS", "incident-agent,agent-controlplane"),
 		AWSRegion:                 env("AWS_REGION", "ap-southeast-1"),
 		EventPublisher:            boolEnv("EVENT_PUBLISHER_ENABLED", false),
 		EventsTopicARN:            os.Getenv("EVENTS_TOPIC_ARN"),
