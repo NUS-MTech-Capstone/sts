@@ -16,17 +16,20 @@ import (
 )
 
 type Validator struct {
-	apiURL        string
-	reviewerToken string
-	audience      string
-	expectedUsers map[string]struct{}
-	client        *http.Client
+	apiURL            string
+	reviewerTokenFile string
+	audience          string
+	expectedUsers     map[string]struct{}
+	client            *http.Client
 }
 
 func New(apiURL, tokenFile, caFile, audience, namespace string, serviceAccounts []string, timeout time.Duration) (*Validator, error) {
 	reviewerToken, err := readFileScoped(tokenFile)
 	if err != nil {
 		return nil, fmt.Errorf("read kubernetes service account token: %w", err)
+	}
+	if strings.TrimSpace(string(reviewerToken)) == "" {
+		return nil, errors.New("kubernetes service account token is empty")
 	}
 	caPEM, err := readFileScoped(caFile)
 	if err != nil {
@@ -44,9 +47,10 @@ func New(apiURL, tokenFile, caFile, audience, namespace string, serviceAccounts 
 		}
 	}
 	return &Validator{
-		apiURL: strings.TrimRight(apiURL, "/"), reviewerToken: strings.TrimSpace(string(reviewerToken)),
-		audience:      audience,
-		expectedUsers: expectedUsers,
+		apiURL:            strings.TrimRight(apiURL, "/"),
+		reviewerTokenFile: filepath.Clean(tokenFile),
+		audience:          audience,
+		expectedUsers:     expectedUsers,
 		client: &http.Client{
 			Timeout:   timeout,
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}},
@@ -77,6 +81,14 @@ func (v *Validator) Validate(ctx context.Context, token string) (string, error) 
 	if strings.TrimSpace(token) == "" {
 		return "", errors.New("workload token is required")
 	}
+	reviewerToken, err := readFileScoped(v.reviewerTokenFile)
+	if err != nil {
+		return "", fmt.Errorf("read kubernetes service account token: %w", err)
+	}
+	reviewerAuthorization := strings.TrimSpace(string(reviewerToken))
+	if reviewerAuthorization == "" {
+		return "", errors.New("kubernetes service account token is empty")
+	}
 	body, err := json.Marshal(map[string]any{
 		"apiVersion": "authentication.k8s.io/v1",
 		"kind":       "TokenReview",
@@ -91,7 +103,7 @@ func (v *Validator) Validate(ctx context.Context, token string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Authorization", "Bearer "+v.reviewerToken)
+	req.Header.Set("Authorization", "Bearer "+reviewerAuthorization)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := v.client.Do(req)
 	if err != nil {

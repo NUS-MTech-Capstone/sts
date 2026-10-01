@@ -130,6 +130,11 @@ audience is intentionally retained so identity and capability callers can use
 the same projected-token configuration while their service-account allowlists
 remain separate.
 
+The Kubernetes reviewer credential is read from its mounted service-account
+token file for every TokenReview. Kubernetes rotates this file while the STS
+pod is running; STS fails closed if the current credential is missing or empty
+and never logs either the reviewer credential or submitted workload token.
+
 For Phase 2 AI-agent integrations, STS remains the authority boundary. Model
 output never grants capability by itself; callers must present workload identity
 for issuance and consumers must validate the signed run, incident, host,

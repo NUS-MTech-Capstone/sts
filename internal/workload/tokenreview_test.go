@@ -29,7 +29,7 @@ func TestValidateAcceptsExpectedServiceAccountAndAudience(t *testing.T) {
 		}),
 	}
 	validator := &Validator{
-		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
+		apiURL: "https://kubernetes.test", reviewerTokenFile: writeReviewerToken(t, "reviewer"), audience: "incident-audience",
 		expectedUsers: map[string]struct{}{
 			"system:serviceaccount:dendenmushi:incident-agent":     {},
 			"system:serviceaccount:dendenmushi:agent-controlplane": {},
@@ -47,7 +47,7 @@ func TestValidateAcceptsExpectedServiceAccountAndAudience(t *testing.T) {
 
 func TestValidateAcceptsAgentControlplaneServiceAccount(t *testing.T) {
 	validator := &Validator{
-		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
+		apiURL: "https://kubernetes.test", reviewerTokenFile: writeReviewerToken(t, "reviewer"), audience: "incident-audience",
 		expectedUsers: map[string]struct{}{
 			"system:serviceaccount:dendenmushi:incident-agent":     {},
 			"system:serviceaccount:dendenmushi:agent-controlplane": {},
@@ -70,7 +70,7 @@ func TestValidateAcceptsAgentControlplaneServiceAccount(t *testing.T) {
 
 func TestValidateRejectsWrongAudience(t *testing.T) {
 	validator := &Validator{
-		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
+		apiURL: "https://kubernetes.test", reviewerTokenFile: writeReviewerToken(t, "reviewer"), audience: "incident-audience",
 		expectedUsers: map[string]struct{}{"system:serviceaccount:dendenmushi:incident-agent": {}},
 		client: &http.Client{
 			Timeout: time.Second,
@@ -99,7 +99,7 @@ func TestNewReadsTokenAndCAFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if validator.apiURL != "https://kubernetes.test" || validator.reviewerToken != "reviewer" ||
+	if validator.apiURL != "https://kubernetes.test" || validator.reviewerTokenFile != tokenFile ||
 		len(validator.expectedUsers) != 2 {
 		t.Fatalf("validator = %#v", validator)
 	}
@@ -125,7 +125,7 @@ func TestNewRejectsUnreadableOrInvalidFiles(t *testing.T) {
 
 func TestValidateRejectsEmptyTokenStatusAndTransportFailures(t *testing.T) {
 	validator := &Validator{
-		apiURL: "https://kubernetes.test", reviewerToken: "reviewer", audience: "incident-audience",
+		apiURL: "https://kubernetes.test", reviewerTokenFile: writeReviewerToken(t, "reviewer"), audience: "incident-audience",
 		expectedUsers: map[string]struct{}{"system:serviceaccount:dendenmushi:incident-agent": {}},
 		client: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 			return nil, errors.New("network down")
@@ -146,6 +146,52 @@ func TestValidateRejectsEmptyTokenStatusAndTransportFailures(t *testing.T) {
 	}
 }
 
+func TestValidateReloadsRotatedReviewerToken(t *testing.T) {
+	tokenFile := writeReviewerToken(t, "reviewer-one")
+	wantReviewer := "reviewer-one"
+	validator := &Validator{
+		apiURL: "https://kubernetes.test", reviewerTokenFile: tokenFile, audience: "incident-audience",
+		expectedUsers: map[string]struct{}{"system:serviceaccount:dendenmushi:incident-agent": {}},
+		client: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			if got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); got != wantReviewer {
+				t.Errorf("reviewer token = %q, want %q", got, wantReviewer)
+			}
+			return jsonResponse(`{"status":{"authenticated":true,"audiences":["incident-audience"],"user":{"username":"system:serviceaccount:dendenmushi:incident-agent"}}}`), nil
+		})},
+	}
+
+	if _, err := validator.Validate(t.Context(), "projected-token"); err != nil {
+		t.Fatal(err)
+	}
+	wantReviewer = "reviewer-two"
+	if err := os.WriteFile(tokenFile, []byte(wantReviewer+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validator.Validate(t.Context(), "projected-token"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateRejectsUnavailableOrEmptyReviewerToken(t *testing.T) {
+	tokenFile := writeReviewerToken(t, "")
+	validator := &Validator{
+		apiURL: "https://kubernetes.test", reviewerTokenFile: tokenFile, audience: "incident-audience",
+		expectedUsers: map[string]struct{}{"system:serviceaccount:dendenmushi:incident-agent": {}},
+		client:        &http.Client{},
+	}
+	if _, err := validator.Validate(t.Context(), "projected-token"); err == nil ||
+		!strings.Contains(err.Error(), "token is empty") {
+		t.Fatalf("Validate() error = %v, want empty reviewer token error", err)
+	}
+	if err := os.Remove(tokenFile); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validator.Validate(t.Context(), "projected-token"); err == nil ||
+		!strings.Contains(err.Error(), "read kubernetes service account token") {
+		t.Fatalf("Validate() error = %v, want reviewer token read error", err)
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -158,6 +204,15 @@ func jsonResponse(body string) *http.Response {
 		Header:     make(http.Header),
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
+}
+
+func writeReviewerToken(t *testing.T, token string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(path, []byte(token), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func testCAPEM(t *testing.T) []byte {
