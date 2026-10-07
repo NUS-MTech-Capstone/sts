@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/NUS-MTech-Capstone/sts/internal/model"
 	"github.com/golang-jwt/jwt/v5"
@@ -25,8 +27,10 @@ type sessionClaims struct {
 	jwt.RegisteredClaims
 }
 
+var ErrAccessDenied = errors.New("access denied")
+
 func (s *Service) IssueSessionToken(ctx context.Context, req model.SessionTokenRequest) (model.SessionTokenResponse, error) {
-	if req.SessionID == "" || req.UserID == "" || req.HostID == "" || req.CRID == "" {
+	if strings.TrimSpace(req.SessionID) == "" || strings.TrimSpace(req.UserID) == "" || strings.TrimSpace(req.HostID) == "" || strings.TrimSpace(req.CRID) == "" {
 		return model.SessionTokenResponse{}, errors.New("sessionId, userId, hostId and crId are required")
 	}
 	if req.ConnectionType == "" {
@@ -38,6 +42,7 @@ func (s *Service) IssueSessionToken(ctx context.Context, req model.SessionTokenR
 	if req.ConnectionType != "ssh" {
 		return model.SessionTokenResponse{}, errors.New("only ssh connectionType is supported")
 	}
+
 	if s.serverInventory == nil {
 		return model.SessionTokenResponse{}, errors.New("server inventory is required to issue ssh session tokens")
 	}
@@ -58,6 +63,9 @@ func (s *Service) IssueSessionToken(ctx context.Context, req model.SessionTokenR
 		return model.SessionTokenResponse{}, errors.New("server inventory ssh target is incomplete")
 	}
 
+	if reason := s.validateChangeRequest(ctx, model.ValidateRequest{UserID: req.UserID, ActorGroups: req.ActorGroups, HostID: req.HostID, CRID: req.CRID, SessionID: req.SessionID, Action: req.Action}); reason != "" {
+		return model.SessionTokenResponse{}, fmt.Errorf("%w: %s", ErrAccessDenied, reason)
+	}
 	jwtID, err := randomID()
 	if err != nil {
 		return model.SessionTokenResponse{}, err

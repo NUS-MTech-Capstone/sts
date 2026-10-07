@@ -23,7 +23,7 @@ func (s changeRequestStub) Get(context.Context, string) (change_request.ChangeRe
 		return change_request.ChangeRequest{}, s.err
 	}
 	if s.changeRequest.CRID == "" {
-		return change_request.ChangeRequest{CRID: "cr-1", Status: "Approved"}, nil
+		return validChangeRequest(), nil
 	}
 	return s.changeRequest, nil
 }
@@ -44,7 +44,7 @@ func TestValidateAccessChecksConfiguredUpstreams(t *testing.T) {
 		serverInventoryStub{err: errors.New("host not found")},
 	)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "user-1",
 		HostID: "host-1",
 		CRID:   "cr-1",
@@ -54,7 +54,7 @@ func TestValidateAccessChecksConfiguredUpstreams(t *testing.T) {
 	if resp.Allowed {
 		t.Fatal("Allowed = true, want false")
 	}
-	if !strings.Contains(resp.Reason, "host not found") {
+	if !strings.Contains(resp.Reason, "server inventory lookup failed") {
 		t.Fatalf("Reason = %q, want host lookup error", resp.Reason)
 	}
 }
@@ -66,7 +66,7 @@ func TestValidateAccessRejectsUnapprovedChangeRequest(t *testing.T) {
 		serverInventoryStub{},
 	)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "user-1",
 		HostID: "host-1",
 		CRID:   "cr-1",
@@ -86,11 +86,12 @@ func TestValidateAccessRejectsChangeRequestHostMismatch(t *testing.T) {
 		TokenConfig{TTL: time.Minute},
 		changeRequestStub{changeRequest: change_request.ChangeRequest{
 			CRID: "cr-1", Status: "Approved", HostIDs: []string{"host-2"},
+			ImplementationStartAt: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), ImplementationEndAt: time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC), AllowedRoles: []string{"Employee"},
 		}},
 		serverInventoryStub{},
 	)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "user-1",
 		HostID: "host-1",
 		CRID:   "cr-1",
@@ -106,9 +107,9 @@ func TestValidateAccessRejectsChangeRequestHostMismatch(t *testing.T) {
 }
 
 func TestValidateAccessRejectsUnknownAction(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "user-1",
 		Action: "delete",
 	})
@@ -122,9 +123,9 @@ func TestValidateAccessRejectsUnknownAction(t *testing.T) {
 }
 
 func TestValidateAccessAllowsRejoinDiscoveryByHostAndCR(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "user-1",
 		HostID: "host-1",
 		CRID:   "cr-1",
@@ -137,9 +138,9 @@ func TestValidateAccessAllowsRejoinDiscoveryByHostAndCR(t *testing.T) {
 }
 
 func TestValidateAccessRejectsRejoinWithoutSessionOrDiscoveryScope(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "user-1",
 		Action: "rejoin",
 	})
@@ -152,14 +153,14 @@ func TestValidateAccessRejectsRejoinWithoutSessionOrDiscoveryScope(t *testing.T)
 	}
 }
 
-func TestValidateAccessAllowsObserveWithSessionForAnyAuthenticatedUser(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+func TestValidateAccessAllowsObserveForEntitledActors(t *testing.T) {
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
 	for _, userID := range []string{"owner-user", "observer-user"} {
-		resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+		resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 			UserID:    userID,
-			SessionID: "sess-1",
-			Action:    "observe",
+			SessionID: "sess-1", HostID: "host-1", CRID: "cr-1",
+			Action: "observe",
 		})
 
 		if !resp.Allowed {
@@ -169,9 +170,9 @@ func TestValidateAccessAllowsObserveWithSessionForAnyAuthenticatedUser(t *testin
 }
 
 func TestValidateAccessRejectsObserveWithoutSession(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "observer-user",
 		Action: "observe",
 	})
@@ -185,9 +186,9 @@ func TestValidateAccessRejectsObserveWithoutSession(t *testing.T) {
 }
 
 func TestValidateAccessRequiresSessionIdForStop(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID: "user-1",
 		Action: "stop",
 	})
@@ -201,9 +202,9 @@ func TestValidateAccessRequiresSessionIdForStop(t *testing.T) {
 }
 
 func TestValidateAccessAllowsStopWithSessionId(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
-	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{
+	resp := svc.ValidateAccess(context.Background(), model.ValidateRequest{ActorGroups: []string{"Employee"},
 		UserID:    "user-1",
 		SessionID: "sess-1",
 		Action:    "stop",
@@ -215,7 +216,7 @@ func TestValidateAccessAllowsStopWithSessionId(t *testing.T) {
 }
 
 func TestAccessPolicySelection(t *testing.T) {
-	svc := New(TokenConfig{TTL: time.Minute}, nil, nil)
+	svc := New(TokenConfig{TTL: time.Minute}, changeRequestStub{}, nil)
 
 	tests := []struct {
 		action string
@@ -237,4 +238,8 @@ func TestAccessPolicySelection(t *testing.T) {
 			}
 		})
 	}
+}
+
+func validChangeRequest() change_request.ChangeRequest {
+	return change_request.ChangeRequest{CRID: "cr-1", Status: "Approved", HostIDs: []string{"host-1"}, AllowedRoles: []string{"Employee"}, ImplementationStartAt: time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), ImplementationEndAt: time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,10 +19,13 @@ type Client struct {
 }
 
 type ChangeRequest struct {
-	CRID    string   `json:"crId"`
-	UserID  string   `json:"userId,omitempty"`
-	HostIDs []string `json:"hostIds,omitempty"`
-	Status  string   `json:"status,omitempty"`
+	CRID                  string    `json:"crId"`
+	UserID                string    `json:"userId,omitempty"`
+	HostIDs               []string  `json:"hostIds,omitempty"`
+	Status                string    `json:"status,omitempty"`
+	ImplementationStartAt time.Time `json:"implementationStartAt"`
+	ImplementationEndAt   time.Time `json:"implementationEndAt"`
+	AllowedRoles          []string  `json:"allowedRoles"`
 }
 
 func New(baseURL string, timeout time.Duration) *Client {
@@ -31,8 +35,7 @@ func New(baseURL string, timeout time.Duration) *Client {
 	}
 }
 
-// Get retrieves a change request. The endpoint contract is a placeholder until
-// the change-request service is added to this workspace.
+// Get retrieves trusted CR metadata from the configured backend.
 func (c *Client) Get(ctx context.Context, crID string) (ChangeRequest, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -54,8 +57,12 @@ func (c *Client) Get(ctx context.Context, crID string) (ChangeRequest, error) {
 		return ChangeRequest{}, fmt.Errorf("change-request service returned status %d", resp.StatusCode)
 	}
 
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if err != nil || len(body) > 1<<20 {
+		return ChangeRequest{}, fmt.Errorf("invalid change-request response size or read failure")
+	}
 	var changeRequest ChangeRequest
-	if err := json.NewDecoder(resp.Body).Decode(&changeRequest); err != nil {
+	if err := json.Unmarshal(body, &changeRequest); err != nil {
 		return ChangeRequest{}, fmt.Errorf("decode change request: %w", err)
 	}
 	return changeRequest, nil
