@@ -3,11 +3,12 @@ package model
 import "time"
 
 type ValidateRequest struct {
-	UserID    string `json:"userId"`
-	HostID    string `json:"hostId,omitempty"`
-	CRID      string `json:"crId,omitempty"`
-	SessionID string `json:"sessionId,omitempty"`
-	Action    string `json:"action"`
+	ActorGroups []string `json:"actorGroups"`
+	UserID      string   `json:"userId"`
+	HostID      string   `json:"hostId,omitempty"`
+	CRID        string   `json:"crId,omitempty"`
+	SessionID   string   `json:"sessionId,omitempty"`
+	Action      string   `json:"action"`
 }
 
 type ValidateResponse struct {
@@ -17,13 +18,14 @@ type ValidateResponse struct {
 }
 
 type SessionTokenRequest struct {
-	SessionID      string `json:"sessionId"`
-	UserID         string `json:"userId"`
-	HostID         string `json:"hostId"`
-	CRID           string `json:"crId"`
-	ConnectionType string `json:"connectionType"`
-	Action         string `json:"action"`
-	Mode           string `json:"mode"`
+	ActorGroups    []string `json:"actorGroups"`
+	SessionID      string   `json:"sessionId"`
+	UserID         string   `json:"userId"`
+	HostID         string   `json:"hostId"`
+	CRID           string   `json:"crId"`
+	ConnectionType string   `json:"connectionType"`
+	Action         string   `json:"action"`
+	Mode           string   `json:"mode"`
 }
 
 type SessionTokenResponse struct {

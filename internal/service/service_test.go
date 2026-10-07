@@ -45,14 +45,14 @@ func (workloadStub) Validate(context.Context, string) (string, error) {
 }
 
 func testTokenRequest(action, mode string) model.SessionTokenRequest {
-	return model.SessionTokenRequest{
+	return model.SessionTokenRequest{ActorGroups: []string{"Employee"},
 		SessionID: "sess-1", UserID: "user-1", HostID: "host-1", CRID: "cr-1",
 		ConnectionType: "ssh", Action: action, Mode: mode,
 	}
 }
 
 func TestIssueAndValidateAutomationToken(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory(), workloadStub{})
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory(), workloadStub{})
 	svc.now = func() time.Time { return testNow }
 	token, err := svc.IssueAutomationToken(t.Context(), "workload-token", model.AutomationTokenRequest{
 		RunID: "run-1", IncidentID: "inc-1", HostID: "host-1", Phase: "remediate",
@@ -80,7 +80,7 @@ func TestIssueAndValidateAutomationToken(t *testing.T) {
 }
 
 func TestIssueAutomationTokenRejectsUnapprovedOperation(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory(), workloadStub{})
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory(), workloadStub{})
 	_, err := svc.IssueAutomationToken(t.Context(), "workload-token", model.AutomationTokenRequest{
 		RunID: "run-1", IncidentID: "inc-1", HostID: "host-1", Phase: "diagnose",
 		AllowedOperations: []string{"arbitrary_shell"}, OwnerPodID: "pod-1", OwnerInstanceID: "instance-1",
@@ -91,7 +91,7 @@ func TestIssueAutomationTokenRejectsUnapprovedOperation(t *testing.T) {
 }
 
 func TestValidateAutomationTokenRejectsExpiredAndWrongRun(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory(), workloadStub{})
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory(), workloadStub{})
 	svc.now = func() time.Time { return testNow }
 	token, err := svc.IssueAutomationToken(t.Context(), "workload-token", model.AutomationTokenRequest{
 		RunID: "run-1", IncidentID: "inc-1", HostID: "host-1", Phase: "verify",
@@ -115,7 +115,7 @@ func TestValidateAutomationTokenRejectsExpiredAndWrongRun(t *testing.T) {
 }
 
 func TestIssueAndValidateSessionToken(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory())
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	svc.now = func() time.Time { return testNow }
 	ctx := context.Background()
 	token, err := svc.IssueSessionToken(ctx, testTokenRequest("start", "owner"))
@@ -130,7 +130,7 @@ func TestIssueAndValidateSessionToken(t *testing.T) {
 	}
 
 	// A separate service instance can verify the JWT without shared token state.
-	verifier := New(testTokenConfig(), nil, testInventory())
+	verifier := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	verifier.now = func() time.Time { return testNow }
 	resp := verifier.ValidateSessionToken(ctx, model.TokenValidateRequest{
 		SessionID: "sess-1",
@@ -163,7 +163,7 @@ func TestIssueAndValidateSessionToken(t *testing.T) {
 }
 
 func TestValidateSessionTokenRejectsWrongUser(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory())
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	svc.now = func() time.Time { return testNow }
 	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "observer"))
 	if err != nil {
@@ -179,7 +179,7 @@ func TestValidateSessionTokenRejectsWrongUser(t *testing.T) {
 }
 
 func TestValidateSessionTokenRejectsExpectedClaimMismatch(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory())
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	svc.now = func() time.Time { return testNow }
 	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "observer"))
 	if err != nil {
@@ -231,7 +231,7 @@ func TestValidateSessionTokenRejectsExpectedClaimMismatch(t *testing.T) {
 }
 
 func TestIssueAndValidateRejoinOwnerSessionToken(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory())
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	svc.now = func() time.Time { return testNow }
 
 	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("rejoin", "owner"))
@@ -253,7 +253,7 @@ func TestIssueAndValidateRejoinOwnerSessionToken(t *testing.T) {
 }
 
 func TestIssueAndValidateObserveSessionToken(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory())
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	svc.now = func() time.Time { return testNow }
 
 	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "observer"))
@@ -275,7 +275,7 @@ func TestIssueAndValidateObserveSessionToken(t *testing.T) {
 }
 
 func TestIssueSessionTokenRejectsInvalidActionMode(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory())
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	if _, err := svc.IssueSessionToken(t.Context(), testTokenRequest("observe", "owner")); err == nil {
 		t.Fatal("IssueSessionToken() accepted observe owner token")
 	}
@@ -332,7 +332,7 @@ func TestIssueSessionTokenRejectsMissingAndMismatchedTargetMetadata(t *testing.T
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := New(testTokenConfig(), nil, tt.inventory)
+			svc := New(testTokenConfig(), changeRequestStub{}, tt.inventory)
 			_, err := svc.IssueSessionToken(t.Context(), tt.req)
 			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
 				t.Fatalf("IssueSessionToken() error = %v, want containing %q", err, tt.wantError)
@@ -342,7 +342,7 @@ func TestIssueSessionTokenRejectsMissingAndMismatchedTargetMetadata(t *testing.T
 }
 
 func TestValidateSessionTokenRejectsExpiredOrTamperedJWT(t *testing.T) {
-	svc := New(testTokenConfig(), nil, testInventory())
+	svc := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	svc.now = func() time.Time { return testNow }
 	token, err := svc.IssueSessionToken(t.Context(), testTokenRequest("start", "owner"))
 	if err != nil {
@@ -378,7 +378,7 @@ func TestValidateSessionTokenRejectsExpiredOrTamperedJWT(t *testing.T) {
 }
 
 func TestValidateSessionTokenRejectsWrongSigningContext(t *testing.T) {
-	issuer := New(testTokenConfig(), nil, testInventory())
+	issuer := New(testTokenConfig(), changeRequestStub{}, testInventory())
 	issuer.now = func() time.Time { return testNow }
 	token, err := issuer.IssueSessionToken(t.Context(), testTokenRequest("start", "owner"))
 	if err != nil {

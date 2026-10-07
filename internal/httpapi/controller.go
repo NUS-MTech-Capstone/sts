@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/NUS-MTech-Capstone/sts/internal/events"
 	"github.com/NUS-MTech-Capstone/sts/internal/model"
 	"github.com/NUS-MTech-Capstone/sts/internal/observability"
+	"github.com/NUS-MTech-Capstone/sts/internal/service"
 )
 
 func (s *Server) validate(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +78,11 @@ func (s *Server) issueToken(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.svc.IssueSessionToken(r.Context(), req)
 	if err != nil {
 		observability.EmitCount("sts", "STSErrors", map[string]string{"Component": "token", "Reason": "issue_failed"})
-		writeError(w, http.StatusBadRequest, err.Error())
+		if errors.Is(err, service.ErrAccessDenied) {
+			writeError(w, http.StatusForbidden, err.Error())
+		} else {
+			writeError(w, http.StatusBadRequest, "session token issuance failed")
+		}
 		return
 	}
 	slog.InfoContext(r.Context(), "SessionTokenIssued",

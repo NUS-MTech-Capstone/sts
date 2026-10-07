@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: DenDenMushi STS API
   version: 0.1.0
-  description: Authorization and short-lived capability token API for SSH sessions and automation runs. Business endpoints require the `x-api-version: 1` header; probe and OpenAPI endpoints are exempt.
+  description: "Authorization and short-lived capability token API for SSH sessions and automation runs. Business endpoints require the `x-api-version: 1` header; probe and OpenAPI endpoints are exempt."
 servers:
   - url: http://localhost:8080
 paths:
@@ -18,7 +18,7 @@ paths:
                 $ref: "#/components/schemas/HealthResponse"
   /validate:
     post:
-      summary: Validate access for start, rejoin, observe, or discovery flows
+      summary: Validate access for start, rejoin, observe, discovery, or stop flows
       requestBody:
         required: true
         content:
@@ -40,7 +40,7 @@ paths:
                 $ref: "#/components/schemas/ValidateResponse"
   /tokens/session:
     post:
-      summary: Issue a scoped session token
+      summary: Recheck trusted CR authorization and issue a scoped session token
       requestBody:
         required: true
         content:
@@ -55,6 +55,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/SessionTokenResponse"
         "400":
+          $ref: "#/components/responses/Error"
+        "403":
           $ref: "#/components/responses/Error"
   /tokens/validate:
     post:
@@ -181,7 +183,23 @@ components:
     ValidateRequest:
       type: object
       required: [userId, action]
+      description: Internal trusted caller assertions. Start, rejoin, observe and rejoin discovery require hostId, crId and actorGroups; observe also requires sessionId. Stop requires sessionId and remains available after CR expiry.
+      allOf:
+        - if:
+            properties:
+              action: {enum: [start, rejoin, observe]}
+          then:
+            required: [hostId, crId, actorGroups]
+        - if:
+            properties:
+              action: {enum: [observe, stop]}
+          then:
+            required: [sessionId]
       properties:
+        actorGroups:
+          type: array
+          description: Cognito groups verified and subject-bound by Proxy Control Plane; never browser input.
+          items: {type: string, minLength: 1}
         userId:
           type: string
         hostId:
@@ -192,7 +210,7 @@ components:
           type: string
         action:
           type: string
-          enum: [start, rejoin, observe]
+          enum: [start, rejoin, observe, stop]
     ValidateResponse:
       type: object
       required: [allowed]
@@ -205,8 +223,12 @@ components:
           $ref: "#/components/schemas/SessionClaims"
     SessionTokenRequest:
       type: object
-      required: [sessionId, userId, hostId, crId, connectionType, action, mode]
+      required: [sessionId, userId, hostId, crId, connectionType, action, mode, actorGroups]
       properties:
+        actorGroups:
+          type: array
+          description: Verified actor groups from the trusted control plane. CR authorization is rechecked before issuance.
+          items: {type: string, minLength: 1}
         sessionId:
           type: string
         userId:

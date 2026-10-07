@@ -33,7 +33,7 @@ func TestValidateEndpointAllowsAndDeniesRequests(t *testing.T) {
 		body   string
 		status int
 	}{
-		{name: "allowed", body: `{"userId":"user-1","hostId":"host-1","crId":"cr-1","action":"start"}`, status: http.StatusOK},
+		{name: "missing trusted CR", body: `{"userId":"user-1","hostId":"host-1","crId":"cr-1","action":"start"}`, status: http.StatusForbidden},
 		{name: "denied", body: `{"userId":"user-1","action":"delete"}`, status: http.StatusForbidden},
 		{name: "bad json", body: `{`, status: http.StatusBadRequest},
 	}

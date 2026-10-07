@@ -60,25 +60,67 @@ automation capability tokens, secrets, command bodies, prompts, or terminal
 streams. Publish failures are logged and do not change the authorization
 response.
 
-The upstream URLs are optional while those services are not part of this
-workspace. When configured, start validation performs these placeholder calls:
+## Trusted change-request authorization
+
+`CHANGE_REQUEST_URL` is required for interactive access. STS fails closed when
+it is absent or its lookup fails. In EKS it points to
+`http://nest-backend.dendenmushi-webapp.svc.cluster.local:3000/sts`.
+The trusted backend returns:
 
 ```http
 GET /change-requests/{crId}
-GET /servers/{hostId}
 ```
 
-When `CHANGE_REQUEST_URL` is configured, `/validate` requires the upstream
-change request to be approved. If the response includes `hostIds`, the requested
-gateway host ID must be present.
+```json
+{
+  "crId": "cr-123",
+  "status": "Approved",
+  "hostIds": ["host-123"],
+  "implementationStartAt": "2026-10-07T08:00:00.000Z",
+  "implementationEndAt": "2026-10-07T10:00:00.000Z",
+  "allowedRoles": ["Employee"]
+}
+```
+
+Start, rejoin, observe, rejoin discovery, and `/tokens/session` issuance require:
+
+- The returned CR ID matches the requested ID and its status is approved.
+- Both timestamps are valid, start precedes end, and `start <= now < end`.
+  CR windows have no clock-skew grace period.
+- `hostIds` is explicitly present, non-empty, contains no blank entries, and
+  includes the exact requested gateway host ID.
+- `actorGroups` comes from Proxy Control Plane's cryptographically verified
+  Cognito access token. An exact, case-sensitive group must match `allowedRoles`.
+  `Admin` bypasses role matching only, including an explicitly empty role list.
+  Missing/null/malformed role metadata is denied even for Admin.
+
+The STS API is internal: caller assertions are trusted only within the existing
+service/network boundary. Do not expose `/validate` or `/tokens/session` to
+browsers or accept browser-supplied actor groups. Missing actor context, malformed
+metadata, and unavailable upstreams deny access with sanitized errors. Role/group
+checks refer to Cognito groups, not implementer-group OS usernames.
+
+For rejoin and observe, Proxy Control Plane resolves `hostId` and `crId` from
+Session Manager. Rejoin remains owner-only; observe remains read-only. A
+`sessionId` alone is no longer sufficient for these STS policy checks.
+Closing a session remains available after CR expiry. Existing attachments and
+issued-token TTLs retain their lifecycle behavior; this policy does not terminate
+an already attached terminal at the CR end time.
+
+A configured inventory URL still uses `GET /servers/{hostId}`. EKS continues to
+use trusted static SSH inventory. CR metadata never supplies SSH credentials.
+
+Deploy the compatible Nest response first, then Proxy Control Plane actor-group
+forwarding, then STS enforcement. Older callers missing the new fields fail
+closed after STS rolls out. Roll back through immutable GitOps image promotions;
+rolling back enforcing STS restores its earlier, weaker authorization behavior.
 
 ## Design Patterns
 
 STS models access checks as policy strategies behind the `/validate` endpoint.
 Common validation runs first, then the action-specific policy for `start`,
-`rejoin`, `observe`, or `stop`. The `start` policy composes the optional
-change-request and server-inventory clients without changing the public
-request or response contract.
+`rejoin`, `observe`, or `stop`. The `start` policy composes the trusted
+change-request and optional server-inventory clients using the internal actor-group contract.
 
 ## Endpoints
 
