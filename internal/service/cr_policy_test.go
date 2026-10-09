@@ -42,7 +42,25 @@ func TestChangeRequestPolicyAllAttachmentActionsAndIssuance(t *testing.T) {
 		{"blank entry with valid host", func(cr *change_request.ChangeRequest, _ *model.ValidateRequest) { cr.HostIDs = append(cr.HostIDs, " ") }, "scope"},
 		{"wrong host", func(cr *change_request.ChangeRequest, _ *model.ValidateRequest) { cr.HostIDs = []string{"other"} }, "does not cover host"},
 		{"unauthorized", func(_ *change_request.ChangeRequest, r *model.ValidateRequest) { r.ActorGroups = []string{"Auditor"} }, "not entitled"},
-		{"case sensitive", func(_ *change_request.ChangeRequest, r *model.ValidateRequest) { r.ActorGroups = []string{"employee"} }, "not entitled"},
+		{"lowercase role", func(_ *change_request.ChangeRequest, r *model.ValidateRequest) { r.ActorGroups = []string{"employee"} }, ""},
+		{"mixed case role", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
+			cr.AllowedRoles = []string{"eMpLoYeE"}
+			r.ActorGroups = []string{"EMPLOYEE"}
+		}, ""},
+		{"lowercase admin", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
+			cr.AllowedRoles = []string{}
+			r.ActorGroups = []string{"admin"}
+		}, ""},
+		{"mixed case admin", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
+			cr.AllowedRoles = []string{}
+			r.ActorGroups = []string{"aDmIn"}
+		}, ""},
+		{"padded actor role", func(_ *change_request.ChangeRequest, r *model.ValidateRequest) { r.ActorGroups = []string{" admin"} }, "actor groups"},
+		{"padded allowed role", func(cr *change_request.ChangeRequest, _ *model.ValidateRequest) {
+			cr.AllowedRoles = []string{"Employee "}
+		}, "roles are missing"},
+		{"host ID remains case sensitive", func(cr *change_request.ChangeRequest, _ *model.ValidateRequest) { cr.HostIDs = []string{"HOST-1"} }, "does not cover host"},
+		{"CR ID remains case sensitive", func(cr *change_request.ChangeRequest, _ *model.ValidateRequest) { cr.CRID = "CR-1" }, "ID mismatch"},
 		{"missing actor", func(_ *change_request.ChangeRequest, r *model.ValidateRequest) { r.ActorGroups = nil }, "actor groups"},
 		{"blank actor group", func(_ *change_request.ChangeRequest, r *model.ValidateRequest) {
 			r.ActorGroups = []string{"Admin", " "}
@@ -55,23 +73,23 @@ func TestChangeRequestPolicyAllAttachmentActionsAndIssuance(t *testing.T) {
 		}, ""},
 		{"admin cannot bypass missing roles", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
 			cr.AllowedRoles = nil
-			r.ActorGroups = []string{"Admin"}
+			r.ActorGroups = []string{"admin"}
 		}, "roles are missing"},
 		{"admin cannot bypass window", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
 			cr.ImplementationEndAt = testNow
-			r.ActorGroups = []string{"Admin"}
+			r.ActorGroups = []string{"admin"}
 		}, "expired"},
 		{"admin cannot bypass scope", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
 			cr.HostIDs = nil
-			r.ActorGroups = []string{"Admin"}
+			r.ActorGroups = []string{"admin"}
 		}, "scope"},
 		{"admin cannot bypass host", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
 			cr.HostIDs = []string{"other"}
-			r.ActorGroups = []string{"Admin"}
+			r.ActorGroups = []string{"admin"}
 		}, "does not cover host"},
 		{"admin cannot bypass approval", func(cr *change_request.ChangeRequest, r *model.ValidateRequest) {
 			cr.Status = "Pending"
-			r.ActorGroups = []string{"Admin"}
+			r.ActorGroups = []string{"admin"}
 		}, "not approved"},
 	}
 	for _, action := range []string{"start", "rejoin", "observe"} {

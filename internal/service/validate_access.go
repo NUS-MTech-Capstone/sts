@@ -107,6 +107,17 @@ func contains(values []string, value string) bool {
 	return false
 }
 
+// Role names follow the web application's case-insensitive Cognito role mapping.
+// Resource identifiers still use exact matching through contains.
+func containsRole(groups []string, role string) bool {
+	for _, group := range groups {
+		if strings.EqualFold(group, role) {
+			return true
+		}
+	}
+	return false
+}
+
 // validateChangeRequest is shared by access validation and token issuance.
 // ActorGroups are assertions from the trusted control plane, never browser input.
 func (s *Service) validateChangeRequest(ctx context.Context, req model.ValidateRequest) string {
@@ -148,11 +159,11 @@ func (s *Service) validateChangeRequest(ctx context.Context, req model.ValidateR
 	if cr.AllowedRoles == nil || invalidEntries(cr.AllowedRoles) {
 		return "change request roles are missing or invalid"
 	}
-	if contains(req.ActorGroups, "Admin") {
+	if containsRole(req.ActorGroups, "Admin") {
 		return ""
 	}
 	for _, role := range cr.AllowedRoles {
-		if contains(req.ActorGroups, role) {
+		if containsRole(req.ActorGroups, role) {
 			return ""
 		}
 	}
