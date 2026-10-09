@@ -90,8 +90,11 @@ Start, rejoin, observe, rejoin discovery, and `/tokens/session` issuance require
 - `hostIds` is explicitly present, non-empty, contains no blank entries, and
   includes the exact requested gateway host ID.
 - `actorGroups` comes from Proxy Control Plane's cryptographically verified
-  Cognito access token. An exact, case-sensitive group must match `allowedRoles`.
-  `Admin` bypasses role matching only, including an explicitly empty role list.
+  Cognito access token. Group names match `allowedRoles` case-insensitively,
+  consistent with the web application's role mapping (for example, `admin`
+  and `Admin`). Whitespace-padded role names remain invalid; host and CR IDs
+  remain case-sensitive. `Admin` bypasses role matching only, including an
+  explicitly empty role list.
   Missing/null/malformed role metadata is denied even for Admin.
 
 The STS API is internal: caller assertions are trusted only within the existing
