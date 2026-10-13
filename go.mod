@@ -1,11 +1,15 @@
 module github.com/NUS-MTech-Capstone/sts
 
-go 1.26.5
+go 1.26.9
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.42.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+	gopkg.in/yaml.v3 v3.0.1
 )
+
+require golang.org/x/text v0.14.0 // indirect
 
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.25
