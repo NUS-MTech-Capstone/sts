@@ -2,20 +2,23 @@ openapi: 3.1.0
 info:
   title: DenDenMushi STS API
   version: 0.1.0
-  description: "Authorization and short-lived capability token API for SSH sessions and automation runs. Business endpoints require the `x-api-version: 1` header; probe and OpenAPI endpoints are exempt."
+  description: 'Authorization and short-lived capability token API for SSH sessions and automation runs. Business
+    endpoints require the `x-api-version: 1` header; probe and OpenAPI endpoints are exempt.'
 servers:
-  - url: http://localhost:8080
+- url: http://localhost:8082
+  description: Direct service address; public services are accessed through the authenticated ALB.
 paths:
   /healthz:
     get:
       summary: Liveness probe
       responses:
-        "200":
-          description: Service is running.
+        '200':
+          description: Successful response.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthResponse"
+                $ref: '#/components/schemas/HealthResponse'
+      security: []
   /validate:
     post:
       summary: Validate access for start, rejoin, observe, discovery, or stop flows
@@ -24,20 +27,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ValidateRequest"
+              $ref: '#/components/schemas/ValidateRequest'
       responses:
-        "200":
+        '200':
           description: Access allowed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ValidateResponse"
-        "403":
+                $ref: '#/components/schemas/ValidateResponse'
+        '403':
           description: Access denied.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ValidateResponse"
+                $ref: '#/components/schemas/ValidateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/APIVersion'
   /tokens/session:
     post:
       summary: Recheck trusted CR authorization and issue a scoped session token
@@ -46,18 +53,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SessionTokenRequest"
+              $ref: '#/components/schemas/SessionTokenRequest'
       responses:
-        "201":
+        '201':
           description: Session token issued.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SessionTokenResponse"
-        "400":
-          $ref: "#/components/responses/Error"
-        "403":
-          $ref: "#/components/responses/Error"
+                $ref: '#/components/schemas/SessionTokenResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/APIVersion'
   /tokens/validate:
     post:
       summary: Validate a scoped session token
@@ -66,40 +75,48 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TokenValidateRequest"
+              $ref: '#/components/schemas/TokenValidateRequest'
       responses:
-        "200":
+        '200':
           description: Token is valid and allowed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ValidateResponse"
-        "403":
+                $ref: '#/components/schemas/ValidateResponse'
+        '403':
           description: Token is invalid or not allowed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ValidateResponse"
+                $ref: '#/components/schemas/ValidateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/APIVersion'
   /tokens/automation:
     post:
       summary: Issue a scoped automation capability token
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AutomationTokenRequest"
+              $ref: '#/components/schemas/AutomationTokenRequest'
       responses:
-        "201":
+        '201':
           description: Automation token issued.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AutomationTokenResponse"
-        "403":
-          $ref: "#/components/responses/Error"
+                $ref: '#/components/schemas/AutomationTokenResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '400':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/APIVersion'
   /tokens/automation/validate:
     post:
       summary: Validate an automation capability token
@@ -108,34 +125,53 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AutomationTokenValidateRequest"
+              $ref: '#/components/schemas/AutomationTokenValidateRequest'
       responses:
-        "200":
+        '200':
           description: Token is valid and allowed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AutomationValidateResponse"
-        "403":
+                $ref: '#/components/schemas/AutomationValidateResponse'
+        '403':
           description: Token is invalid or not allowed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AutomationValidateResponse"
+                $ref: '#/components/schemas/AutomationValidateResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/APIVersion'
   /workloads/validate:
     post:
       summary: Validate and normalize an allowed Kubernetes workload identity
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
-        "200":
+        '200':
           description: Projected service-account token is valid and allowed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WorkloadIdentityResponse"
-        "403":
-          $ref: "#/components/responses/Error"
+                $ref: '#/components/schemas/WorkloadIdentityResponse'
+        '403':
+          $ref: '#/components/responses/Error'
+        '400':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/APIVersion'
+  /openapi.yaml:
+    get:
+      summary: Checked-in OpenAPI specification
+      responses:
+        '200':
+          description: Exact api/openapi.yaml bytes.
+          content:
+            application/yaml:
+              schema:
+                type: string
+      security: []
 components:
   securitySchemes:
     bearerAuth:
@@ -143,23 +179,26 @@ components:
       scheme: bearer
   responses:
     Error:
-      description: Structured error response.
+      description: Invalid request, authorization denial, or service failure; the HTTP status identifies the category.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorResponse"
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     HealthResponse:
       type: object
-      required: [status]
       properties:
         status:
           type: string
-          example: ok
+      required:
+      - status
     WorkloadIdentityResponse:
       type: object
       additionalProperties: false
-      required: [subject, namespace, serviceAccount]
+      required:
+      - subject
+      - namespace
+      - serviceAccount
       properties:
         subject:
           type: string
@@ -172,34 +211,53 @@ components:
           example: incident-agent
     ErrorResponse:
       type: object
-      required: [error]
       properties:
         error:
           type: object
-          required: [message]
           properties:
             message:
               type: string
+          required:
+          - message
+      required:
+      - error
     ValidateRequest:
       type: object
-      required: [userId, action]
-      description: Internal trusted caller assertions. Start, rejoin, observe and rejoin discovery require hostId, crId and actorGroups; observe also requires sessionId. Stop requires sessionId and remains available after CR expiry.
+      required:
+      - userId
+      - action
+      description: Internal trusted caller assertions. Start, rejoin, observe and rejoin discovery require hostId,
+        crId and actorGroups; observe also requires sessionId. Stop requires sessionId and remains available after
+        CR expiry.
       allOf:
-        - if:
-            properties:
-              action: {enum: [start, rejoin, observe]}
-          then:
-            required: [hostId, crId, actorGroups]
-        - if:
-            properties:
-              action: {enum: [observe, stop]}
-          then:
-            required: [sessionId]
+      - if:
+          properties:
+            action:
+              enum:
+              - start
+              - rejoin
+              - observe
+        then:
+          required:
+          - hostId
+          - crId
+          - actorGroups
+      - if:
+          properties:
+            action:
+              enum:
+              - observe
+              - stop
+        then:
+          required:
+          - sessionId
       properties:
         actorGroups:
           type: array
           description: Cognito groups verified and subject-bound by Proxy Control Plane; never browser input.
-          items: {type: string, minLength: 1}
+          items:
+            type: string
+            minLength: 1
         userId:
           type: string
         hostId:
@@ -210,25 +268,41 @@ components:
           type: string
         action:
           type: string
-          enum: [start, rejoin, observe, stop]
+          enum:
+          - start
+          - rejoin
+          - observe
+          - stop
     ValidateResponse:
       type: object
-      required: [allowed]
+      required:
+      - allowed
       properties:
         allowed:
           type: boolean
         reason:
           type: string
         claims:
-          $ref: "#/components/schemas/SessionClaims"
+          $ref: '#/components/schemas/SessionClaims'
     SessionTokenRequest:
       type: object
-      required: [sessionId, userId, hostId, crId, connectionType, action, mode, actorGroups]
+      required:
+      - sessionId
+      - userId
+      - hostId
+      - crId
+      - connectionType
+      - action
+      - mode
+      - actorGroups
       properties:
         actorGroups:
           type: array
-          description: Verified actor groups from the trusted control plane. CR authorization is rechecked before issuance.
-          items: {type: string, minLength: 1}
+          description: Verified actor groups from the trusted control plane. CR authorization is rechecked before
+            issuance.
+          items:
+            type: string
+            minLength: 1
         sessionId:
           type: string
         userId:
@@ -239,16 +313,25 @@ components:
           type: string
         connectionType:
           type: string
-          enum: [ssh]
+          enum:
+          - ssh
         action:
           type: string
-          enum: [start, rejoin, observe]
+          enum:
+          - start
+          - rejoin
+          - observe
         mode:
           type: string
-          enum: [owner, observer]
+          enum:
+          - owner
+          - observer
     SessionTokenResponse:
       type: object
-      required: [tokenType, sessionToken, expiresAt]
+      required:
+      - tokenType
+      - sessionToken
+      - expiresAt
       properties:
         tokenType:
           type: string
@@ -260,7 +343,9 @@ components:
           format: date-time
     TokenValidateRequest:
       type: object
-      required: [sessionId, token]
+      required:
+      - sessionId
+      - token
       properties:
         sessionId:
           type: string
@@ -272,18 +357,31 @@ components:
           type: string
         connectionType:
           type: string
-          enum: [ssh]
+          enum:
+          - ssh
         action:
           type: string
-          enum: [start, rejoin, observe]
+          enum:
+          - start
+          - rejoin
+          - observe
         mode:
           type: string
-          enum: [owner, observer]
+          enum:
+          - owner
+          - observer
         token:
           type: string
     SessionClaims:
       type: object
-      required: [sessionId, userId, hostId, crId, connectionType, action, mode]
+      required:
+      - sessionId
+      - userId
+      - hostId
+      - crId
+      - connectionType
+      - action
+      - mode
       properties:
         sessionId:
           type: string
@@ -309,7 +407,14 @@ components:
           type: string
     AutomationTokenRequest:
       type: object
-      required: [runId, incidentId, hostId, phase, allowedOperations, ownerPodId, ownerInstanceId]
+      required:
+      - runId
+      - incidentId
+      - hostId
+      - phase
+      - allowedOperations
+      - ownerPodId
+      - ownerInstanceId
       properties:
         runId:
           type: string
@@ -331,7 +436,10 @@ components:
           type: string
     AutomationTokenResponse:
       type: object
-      required: [tokenType, capabilityToken, expiresAt]
+      required:
+      - tokenType
+      - capabilityToken
+      - expiresAt
       properties:
         tokenType:
           type: string
@@ -343,7 +451,9 @@ components:
           format: date-time
     AutomationTokenValidateRequest:
       type: object
-      required: [runId, token]
+      required:
+      - runId
+      - token
       properties:
         runId:
           type: string
@@ -351,12 +461,76 @@ components:
           type: string
     AutomationValidateResponse:
       type: object
-      required: [allowed]
+      required:
+      - allowed
       properties:
         allowed:
           type: boolean
         reason:
           type: string
         claims:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/AutomationClaims'
+    AutomationClaims:
+      properties:
+        address:
+          type: string
+        allowedOperations:
+          items:
+            type: string
+          type:
+          - array
+          - 'null'
+        catalogVersion:
+          type: string
+        credentialSecretId:
+          type: string
+        healthUrl:
+          type: string
+        helperPath:
+          type: string
+        hostId:
+          type: string
+        hostPublicKey:
+          type: string
+        incidentId:
+          type: string
+        ownerInstanceId:
+          type: string
+        ownerPodId:
+          type: string
+        phase:
+          type: string
+        planHash:
+          type: string
+        runId:
+          type: string
+        serviceName:
+          type: string
+        username:
+          type: string
+      required:
+      - runId
+      - incidentId
+      - hostId
+      - phase
+      - allowedOperations
+      - ownerPodId
+      - ownerInstanceId
+      - address
+      - username
+      - credentialSecretId
+      - hostPublicKey
+      - serviceName
+      - healthUrl
+      - helperPath
+      type: object
+  parameters:
+    APIVersion:
+      name: x-api-version
+      in: header
+      required: true
+      schema:
+        type: string
+        enum:
+        - '1'
+      description: Required on business endpoints. Missing or unsupported values return 400.
