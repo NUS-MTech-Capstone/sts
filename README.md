@@ -104,19 +104,13 @@ metadata, and unavailable upstreams deny access with sanitized errors. Role/grou
 checks refer to Cognito groups, not implementer-group OS usernames.
 
 For rejoin and observe, Proxy Control Plane resolves `hostId` and `crId` from
-Session Manager. Rejoin remains owner-only; observe remains read-only. A
-`sessionId` alone is no longer sufficient for these STS policy checks.
+Session Manager. Rejoin remains owner-only; observe remains read-only. These checks require the trusted session host and CR metadata.
 Closing a session remains available after CR expiry. Existing attachments and
 issued-token TTLs retain their lifecycle behavior; this policy does not terminate
 an already attached terminal at the CR end time.
 
 A configured inventory URL still uses `GET /servers/{hostId}`. EKS continues to
 use trusted static SSH inventory. CR metadata never supplies SSH credentials.
-
-Deploy the compatible Nest response first, then Proxy Control Plane actor-group
-forwarding, then STS enforcement. Older callers missing the new fields fail
-closed after STS rolls out. Roll back through immutable GitOps image promotions;
-rolling back enforcing STS restores its earlier, weaker authorization behavior.
 
 ## Design Patterns
 
@@ -206,26 +200,12 @@ Trusted inventory entries may include:
 }
 ```
 
-## API Specification
+## API contract and CI
 
-The OpenAPI contract is checked in at `api/openapi.yaml` and is served
-unauthenticated at:
+[OpenAPI contract](api/openapi.yaml), served byte-for-byte at `GET /openapi.yaml`.
+CI validates it with `openapi-spec-validator==0.9.0`; handler tests check success,
+error and API-version responses. Update the specification alongside handler changes.
 
-```http
-GET /openapi.yaml
-```
-
-## API contract verification
-
-`api/openapi.yaml` is the checked-in HTTP contract, served byte-for-byte at
-`GET /openapi.yaml`. CI validates it with `openapi-spec-validator==0.9.0`.
-Handler tests validate representative success and error responses against its
-schemas, including missing and unsupported API versions. Business HTTP calls
-require `x-api-version: 1`; the specification declares route exemptions and
-any transport-specific alternatives. Run the repository test suite when
-changing handlers or response models, and update the contract in the same PR.
-
-The Image workflow runs only after successful CI for a push to `main`. It builds
-the tested source SHA, retains that SHA as a traceability tag, and promotes the
-build's `sha256` digest through a Kubernetes PR. Promotion requires the digest;
-Argo CD deploys that immutable reference after the GitOps PR is merged.
+After successful `main` CI, the Image workflow builds the tested source SHA
+and opens a Kubernetes promotion PR with its immutable image digest. Argo CD
+deploys after that PR is merged; the commit tag provides source traceability.
